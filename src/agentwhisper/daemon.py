@@ -68,12 +68,12 @@ class Daemon:
                          daemon=True).start()
 
     def _load_engine(self) -> None:
+        threading.Thread(target=self._loading_ticker, name="load-ticker",
+                         daemon=True).start()
         if not self.engine.is_cached():
             self._notify("Downloading the speech model",
                          f"One-time download of '{self.config.model}' — the tray "
                          f"menu shows the progress.")
-            threading.Thread(target=self._download_ticker, name="dl-ticker",
-                             daemon=True).start()
         self.engine.load()
         if self._tray is not None:
             self._tray.set_state("idle")  # refresh the status line
@@ -98,9 +98,14 @@ class Daemon:
         with self._lock:
             self._dispatch(self.sm.release_settled())
 
-    def _download_ticker(self) -> None:
-        """Refresh the tray status line while the model downloads."""
-        while self.engine.status.startswith("downloading"):
+    def _loading_ticker(self) -> None:
+        """Refresh the tray status line until the model is loaded.
+
+        Keyed on load_finished, NOT on the status string: the status is
+        'not loaded' for a moment before load() flips it, and a string
+        check would make this loop exit before it ever ticked.
+        """
+        while not self.engine.load_finished:
             if self._tray is not None and self.sm.phase.name == "IDLE":
                 self._tray.set_state("idle")  # re-renders the status label
             time.sleep(2)

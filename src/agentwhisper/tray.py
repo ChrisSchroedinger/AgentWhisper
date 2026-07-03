@@ -185,7 +185,7 @@ class Tray:
         if engine.startswith("downloading"):
             percent = engine.removeprefix("downloading").strip()
             text = f"Downloading speech model… {percent or '0%'} (one time)"
-        elif engine == "loading":
+        elif engine in ("loading", "not loaded"):
             text = "Preparing speech model…"
         elif engine.startswith("error"):
             text = "Speech model failed — see agentwhisper status"

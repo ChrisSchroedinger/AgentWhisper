@@ -41,6 +41,11 @@ class WhisperLocalEngine:
             return f"downloading {self.progress}%"
         return self._status
 
+    @property
+    def load_finished(self) -> bool:
+        """True once load() has ended, in success or failure."""
+        return self._loaded.is_set()
+
     def is_cached(self) -> bool:
         """True only if the model is COMPLETELY downloaded.
 

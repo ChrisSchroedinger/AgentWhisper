@@ -2,6 +2,16 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.6 — 2026-07-04
+
+### Fixed
+- The tray status line could show "Ready" during the model download
+  while `agentwhisper status` correctly said "downloading": the label
+  was rendered before the download began and its refresh loop exited
+  on a startup race. The refresh now runs until the model has actually
+  finished loading, and the pre-download moment shows "Preparing
+  speech model…" instead of "Ready".
+
 ## 0.3.5 — 2026-07-04
 
 ### Added
