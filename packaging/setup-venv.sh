@@ -19,14 +19,15 @@ fi
 
 if ! "$VENV/bin/python3" -c "import agentwhisper, faster_whisper, sounddevice, Xlib" \
         2>/dev/null; then
-    echo "Installing Python dependencies (downloads ~200MB, one time)..."
-    "$VENV/bin/pip" install --upgrade pip >/dev/null
+    echo "Installing Python dependencies (one-time ~200MB download, takes a few minutes)..."
+    # -q: no download/progress chatter; real errors still reach stderr.
     # --no-warn-conflicts: with system-site-packages, pip cross-checks
     # unrelated system apps (their deps never see this venv) and prints
     # scary but meaningless conflict errors. Our own set is consistent
     # (resolved from the project lockfile).
-    "$VENV/bin/pip" install --no-warn-conflicts -r "$LIBDIR/requirements.txt"
-    "$VENV/bin/pip" install --no-warn-conflicts --no-deps "$LIBDIR"
+    "$VENV/bin/pip" install -q --upgrade pip
+    "$VENV/bin/pip" install -q --no-warn-conflicts -r "$LIBDIR/requirements.txt"
+    "$VENV/bin/pip" install -q --no-warn-conflicts --no-deps "$LIBDIR"
 fi
 
 echo "AgentWhisper virtualenv ready."

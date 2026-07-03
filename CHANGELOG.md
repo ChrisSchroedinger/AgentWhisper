@@ -2,6 +2,13 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.2 — 2026-07-04
+
+### Changed
+- Quiet `.deb` installation: pip's download log no longer scrolls by.
+  The postinst prints a few concise progress lines; real errors still
+  show.
+
 ## 0.3.1 — 2026-07-04
 
 ### Fixed
