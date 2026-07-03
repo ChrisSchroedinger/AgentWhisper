@@ -50,6 +50,7 @@ def cmd_status() -> int:
     print(f"  auto-type:  {s['auto_type']}")
     print(f"  notify:     {s['notifications']}")
     print(f"  mode:       {s['mode']}")
+    print(f"  autostart:  {s['autostart']}")
     print(f"  hotkey:     {s['hotkey']} — {s['hotkey_status']}")
     print(f"  tray:       {s['tray']}")
     print(f"  visualizer: {s['visualizer']}")
@@ -75,6 +76,15 @@ def cmd_mode(mode: str) -> int:
     return 0
 
 
+def cmd_autostart(state: str) -> int:
+    s = _request({"cmd": "set-autostart", "enabled": state == "on"})
+    if not s.get("ok"):
+        print(f"error: {s.get('error')}", file=sys.stderr)
+        return 1
+    print(f"start at login {'enabled' if s['autostart'] else 'disabled'}")
+    return 0
+
+
 def cmd_quit() -> int:
     s = _request({"cmd": "quit"})
     if not s.get("ok"):
@@ -95,12 +105,16 @@ def main() -> int:
     mode_parser = sub.add_parser("mode", help="set the recording mode")
     mode_parser.add_argument("mode", choices=["hold", "toggle"],
                              help="hold = push-to-talk, toggle = press to start/stop")
+    autostart_parser = sub.add_parser("autostart", help="start AgentWhisper at login")
+    autostart_parser.add_argument("state", choices=["on", "off"])
     sub.add_parser("quit", help="stop the daemon")
     args = parser.parse_args()
 
     try:
         if args.command == "mode":
             return cmd_mode(args.mode)
+        if args.command == "autostart":
+            return cmd_autostart(args.state)
         handlers = {"status": cmd_status, "toggle": cmd_toggle, "quit": cmd_quit}
         return handlers[args.command]()
     except (FileNotFoundError, ConnectionRefusedError):

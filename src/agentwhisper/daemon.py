@@ -23,7 +23,7 @@ import threading
 import time
 from pathlib import Path
 
-from agentwhisper import __version__, ipc
+from agentwhisper import __version__, autostart, ipc
 from agentwhisper import config as config_mod
 from agentwhisper.audio import AudioError, Recorder
 from agentwhisper.desktop.base import DesktopError
@@ -64,8 +64,23 @@ class Daemon:
 
     def start_engine(self) -> None:
         """Load the model in the background; the daemon stays responsive."""
-        threading.Thread(target=self.engine.load, name="engine-load",
+        threading.Thread(target=self._load_engine, name="engine-load",
                          daemon=True).start()
+
+    def _load_engine(self) -> None:
+        if not self.engine.is_cached():
+            self._notify("Downloading the speech model",
+                         f"One-time download of '{self.config.model}' — "
+                         f"dictation becomes available when it finishes.")
+        self.engine.load()
+        if self._tray is not None:
+            self._tray.set_state("idle")  # refresh the status line
+        if self.engine.status == "ready":
+            if self.engine.downloaded:
+                self._notify("AgentWhisper is ready",
+                             "The speech model is installed — you can dictate now.")
+        else:
+            self._notify("Speech model failed to load", self.engine.status)
 
     # -- hotkey events (called from the listener thread) -----------------
 
@@ -140,6 +155,10 @@ class Daemon:
             return
 
         log.info("recording stopped: %.1fs captured — transcribing", duration)
+        if self.engine.status in ("downloading", "loading"):
+            self._notify("Preparing the speech model",
+                         "Your dictation is queued and will be transcribed "
+                         "as soon as the model is ready.")
         if self._tray is not None:
             self._tray.set_state("transcribing")
         threading.Thread(target=self._transcribe, args=(samples,),
@@ -220,6 +239,19 @@ class Daemon:
     def hotkey_name(self) -> str:
         return self.config.hotkey
 
+    def engine_status(self) -> str:
+        return self.engine.status
+
+    def is_autostart(self) -> bool:
+        return autostart.is_enabled()
+
+    def set_autostart(self, enabled: bool) -> None:
+        if enabled:
+            autostart.enable()
+        else:
+            autostart.disable()
+        log.info("start at login %s", "on" if enabled else "off")
+
     def is_auto_type(self) -> bool:
         return self.config.auto_type
 
@@ -261,6 +293,7 @@ class Daemon:
                 auto_type=self.config.auto_type,
                 notifications=self.config.notifications,
                 mode=self.sm.mode,
+                autostart=autostart.is_enabled(),
                 hotkey=self.config.hotkey,
                 hotkey_status=self.hotkey_status,
                 tray="active" if self._tray is not None else "unavailable",
@@ -271,6 +304,12 @@ class Daemon:
         if cmd == "toggle-enabled":
             self.set_enabled(not self.sm.enabled)
             return ipc.ok(enabled=self.sm.enabled)
+        if cmd == "set-autostart":
+            enabled = message.get("enabled")
+            if not isinstance(enabled, bool):
+                return ipc.error("set-autostart needs enabled: true/false")
+            self.set_autostart(enabled)
+            return ipc.ok(autostart=enabled)
         if cmd == "set-mode":
             mode = message.get("mode")
             if mode not in ("hold", "toggle"):

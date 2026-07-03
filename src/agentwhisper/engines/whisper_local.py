@@ -8,8 +8,10 @@ that everything is offline.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -30,16 +32,25 @@ class WhisperLocalEngine:
         self._model = None
         self._status = "not loaded"
         self._loaded = threading.Event()
+        self.downloaded = False  # True if load() had to download the model
 
     @property
     def status(self) -> str:
         return self._status
 
+    def is_cached(self) -> bool:
+        """Best-effort: has this model been downloaded before?"""
+        hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+        return (hf_home / "hub" / f"models--Systran--faster-whisper-{self.model_name}").exists()
+
     def load(self) -> None:
         from faster_whisper import WhisperModel
 
-        self._status = "loading"
-        log.info("loading whisper model %r (first run downloads it)", self.model_name)
+        cached = self.is_cached()
+        self.downloaded = not cached
+        self._status = "loading" if cached else "downloading"
+        log.info("%s whisper model %r",
+                 "loading" if cached else "downloading (first run)", self.model_name)
         started = time.time()
         try:
             self._model = WhisperModel(

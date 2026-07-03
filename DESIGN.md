@@ -144,8 +144,11 @@ agentwhisper/
 4. **Types** ✅: auto-type (xdotool --clearmodifiers) + notifications
    (notify-send with the replace-don't-stack hint) via the X11
    DesktopBackend; Auto-Type/Notifications toggles in the tray menu.
-5. **Hardens** ← current: systemd unit, autostart option, model
-   download UX, `.deb` packaging.
+5. **Hardens** ✅: start-at-login via XDG autostart (chosen over a
+   systemd unit: the session starts it, so DISPLAY is always right),
+   guided first-run model download (downloading/loading/ready surfaced
+   in tray + notifications), `.deb` packaging (build-deb.sh; venv in
+   postinst, same pattern as install.sh).
 
 ## Future seams (explicitly designed for, not built)
 

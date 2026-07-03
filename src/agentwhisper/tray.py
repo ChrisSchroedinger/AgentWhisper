@@ -106,6 +106,11 @@ class Tray:
         self._notify_item.connect("toggled", self._on_notify_toggled)
         menu.append(self._notify_item)
 
+        self._autostart_item = Gtk.CheckMenuItem(label="Start at login")
+        self._autostart_item.set_active(self._app.is_autostart())
+        self._autostart_item.connect("toggled", self._on_autostart_toggled)
+        menu.append(self._autostart_item)
+
         mode_item = Gtk.MenuItem(label="Recording Mode")
         mode_menu = Gtk.Menu()
         self._mode_items = {}
@@ -151,6 +156,10 @@ class Tray:
         if not self._updating_menu:
             self._app.set_notifications(item.get_active())
 
+    def _on_autostart_toggled(self, item):
+        if not self._updating_menu:
+            self._app.set_autostart(item.get_active())
+
     # -- state display (thread-safe) ----------------------------------------
 
     def set_state(self, state: str) -> None:
@@ -171,7 +180,14 @@ class Tray:
 
     def _refresh_status_label(self) -> None:
         key = self._app.hotkey_name().upper()
-        if not self._app.is_enabled():
+        engine = self._app.engine_status()
+        if engine == "downloading":
+            text = "Downloading speech model… (one time)"
+        elif engine == "loading":
+            text = "Preparing speech model…"
+        elif engine.startswith("error"):
+            text = "Speech model failed — see agentwhisper status"
+        elif not self._app.is_enabled():
             text = "Disabled"
         elif self._app.get_mode() == "hold":
             text = f"Ready — hold {key} to dictate"

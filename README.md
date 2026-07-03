@@ -5,12 +5,12 @@ speak, release — your words are transcribed on your own computer and
 land in your clipboard, optionally typed straight into whatever you were
 writing. No cloud, no account, no internet needed after setup.
 
-> **Project status: v0.2 — deployable.** Everything in the description
+> **Project status: v0.3 — deployable.** Everything in the description
 > above works today: hold F12, speak, release — the text is **typed into
-> whatever you were writing** and is also in your clipboard. In daily
-> use on Debian/Ubuntu with XFCE. Remaining before v1.0: convenience polish
-> (autostart on login, friendlier first-run model download, a .deb
-> package). See the [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
+> whatever you were writing** and is also in your clipboard. Optional
+> start-at-login, guided first-run model download, and a .deb package
+> round it out. In daily use on Debian/Ubuntu with XFCE.
+> See the [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
 
 AgentWhisper is the from-scratch successor to
 [soupawhisper](https://github.com/ChrisSchroedinger/soupawhisper) (now
@@ -62,6 +62,15 @@ command to your terminal, and tells you clearly if anything is missing.
 To remove everything again: `./uninstall.sh` (add `--purge` to also
 delete your settings and logs).
 
+**Alternative: .deb package** (system-wide, for Debian/Ubuntu):
+
+```bash
+./build-deb.sh
+sudo apt install ./dist/agentwhisper_*.deb
+```
+
+Pick one method or the other, not both.
+
 ## Using it
 
 Start **AgentWhisper** from your applications menu. The mic icon appears
@@ -91,11 +100,13 @@ won't see the key, so it can't accidentally trigger something else.
 
 **The tray menu** (right-click the icon):
 
-- a status line telling you what to do in the current mode
+- a status line telling you what to do in the current mode (and the
+  model download progress on first run)
 - **Enabled** — pause/resume dictation without quitting
 - **Auto-Type into active window** — on: text is typed for you;
   off: clipboard only
 - **Notifications** — the "Typed & copied" confirmations on/off
+- **Start at login** — AgentWhisper starts with your session
 - **Recording Mode** — hold-to-talk vs. press-to-toggle
 - **Quit AgentWhisper**
 
@@ -105,6 +116,7 @@ won't see the key, so it can't accidentally trigger something else.
 agentwhisper status    # is it running? what's it doing?
 agentwhisper toggle    # enable/disable dictation
 agentwhisper mode toggle   # or: hold
+agentwhisper autostart on  # start with your session (or: off)
 agentwhisper quit
 ```
 
@@ -155,14 +167,14 @@ If typing fails the text is still in your clipboard — Ctrl+V.
 | 2. Records: exclusive hotkey, mic capture, voice visualizer | ✅ done |
 | 3. Transcribes: speech → text in your clipboard (English) | ✅ done |
 | 4. Types the text into the active window + notifications | ✅ done |
-| 5. Polish: autostart, easy model download, .deb package | 🔜 next |
+| 5. Polish: autostart, easy model download, .deb package | ✅ done |
 | Later: more languages, Wayland, agent mode | designed for |
 
 ## For developers
 
 ```bash
 ./install.sh       # sets up the venv (needs system Python + GTK bindings)
-uv run pytest      # 53 tests
+uv run pytest      # 59 tests
 uv run ruff check .
 ```
 

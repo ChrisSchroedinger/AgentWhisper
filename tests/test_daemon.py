@@ -54,6 +54,7 @@ class TestHandleRequest:
         assert s["auto_type"] is True
         assert s["notifications"] is True
         assert s["mode"] == "hold"
+        assert isinstance(s["autostart"], bool)
         assert s["hotkey"] == "f12"
         assert s["hotkey_status"] == "inactive"
         assert s["tray"] == "unavailable"
@@ -77,6 +78,22 @@ class TestHandleRequest:
 
     def test_set_mode_rejects_garbage(self, daemon):
         response = daemon.handle_request({"cmd": "set-mode", "mode": "press"})
+        assert response["ok"] is False
+
+    def test_set_autostart(self, daemon, monkeypatch, tmp_path):
+        from agentwhisper import autostart
+
+        monkeypatch.setattr(autostart, "autostart_path",
+                            lambda: tmp_path / "agentwhisper.desktop")
+        assert daemon.handle_request(
+            {"cmd": "set-autostart", "enabled": True})["autostart"] is True
+        assert autostart.is_enabled()
+        assert daemon.handle_request(
+            {"cmd": "set-autostart", "enabled": False})["autostart"] is False
+        assert not autostart.is_enabled()
+
+    def test_set_autostart_rejects_non_bool(self, daemon):
+        response = daemon.handle_request({"cmd": "set-autostart", "enabled": "yes"})
         assert response["ok"] is False
 
     def test_unknown_command(self, daemon):

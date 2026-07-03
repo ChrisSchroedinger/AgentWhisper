@@ -2,6 +2,24 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.0 — 2026-07-04
+
+### Added
+- **Start at login**: new tray checkbox and `agentwhisper autostart on|off`
+  (XDG autostart entry, works on any desktop).
+- **Friendly first-run experience**: the app now tells you when the
+  speech model is downloading (one-time), when it's ready, and — if you
+  dictate too early — that your dictation is queued. The tray status
+  line shows the model state; a cached model is detected and loads
+  without any download notice.
+- **`.deb` package**: `./build-deb.sh` produces
+  `dist/agentwhisper_<version>_all.deb` as an alternative, system-wide
+  install method (dependencies installed into a private virtualenv at
+  package configure time).
+
+### Known limitations
+- English only, X11 only (both designed-for future steps)
+
 ## 0.2.0 — 2026-07-04
 
 First deployable release. Complete push-to-talk dictation on X11/XFCE,
