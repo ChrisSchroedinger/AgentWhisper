@@ -8,8 +8,10 @@ that everything is offline.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -31,9 +33,12 @@ class WhisperLocalEngine:
         self._status = "not loaded"
         self._loaded = threading.Event()
         self.downloaded = False  # True if load() had to download the model
+        self._expected_bytes = 0  # remote size of the model being downloaded
 
     @property
     def status(self) -> str:
+        if self._status == "downloading":
+            return f"downloading {self.progress}%"
         return self._status
 
     def is_cached(self) -> bool:
@@ -53,6 +58,50 @@ class WhisperLocalEngine:
         except Exception:
             return False
 
+    def _repo_id(self) -> str:
+        from faster_whisper.utils import _MODELS
+
+        return _MODELS.get(self.model_name, self.model_name)
+
+    def _blobs_dir(self) -> Path:
+        hf_home = Path(os.environ.get("HF_HOME",
+                                      Path.home() / ".cache" / "huggingface"))
+        return hf_home / "hub" / ("models--" + self._repo_id().replace("/", "--")) / "blobs"
+
+    def _fetch_expected_bytes(self) -> int:
+        """Total size of the files faster-whisper will download, from the
+        Hugging Face API. 0 if it can't be determined (progress then
+        just isn't shown)."""
+        import fnmatch
+
+        from huggingface_hub import HfApi
+
+        patterns = ["config.json", "preprocessor_config.json",
+                    "model.bin", "tokenizer.json", "vocabulary.*"]
+        try:
+            info = HfApi().model_info(self._repo_id(), files_metadata=True)
+            return sum(
+                s.size or 0 for s in info.siblings
+                if any(fnmatch.fnmatch(s.rfilename, p) for p in patterns)
+            )
+        except Exception as e:
+            log.warning("could not determine model download size: %s", e)
+            return 0
+
+    @property
+    def progress(self) -> int:
+        """Download progress 0-99, measured from bytes on disk — robust
+        regardless of how the downloader reports (and it counts resumed
+        partial files for free)."""
+        if not self._expected_bytes:
+            return 0
+        try:
+            done = sum(f.stat().st_size for f in self._blobs_dir().glob("*")
+                       if f.is_file())
+        except OSError:
+            return 0
+        return min(99, int(100 * done / self._expected_bytes))
+
     def load(self) -> None:
         from faster_whisper import WhisperModel
 
@@ -63,6 +112,8 @@ class WhisperLocalEngine:
                  "loading" if cached else "downloading (first run)", self.model_name)
         started = time.time()
         try:
+            if not cached:
+                self._expected_bytes = self._fetch_expected_bytes()
             self._model = WhisperModel(
                 self.model_name, device=self.device, compute_type=self.compute_type
             )

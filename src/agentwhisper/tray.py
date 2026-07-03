@@ -182,8 +182,9 @@ class Tray:
     def _refresh_status_label(self) -> None:
         key = self._app.hotkey_name().upper()
         engine = self._app.engine_status()
-        if engine == "downloading":
-            text = "Downloading speech model… (one time)"
+        if engine.startswith("downloading"):
+            percent = engine.removeprefix("downloading").strip()
+            text = f"Downloading speech model… {percent or '0%'} (one time)"
         elif engine == "loading":
             text = "Preparing speech model…"
         elif engine.startswith("error"):

@@ -70,8 +70,10 @@ class Daemon:
     def _load_engine(self) -> None:
         if not self.engine.is_cached():
             self._notify("Downloading the speech model",
-                         f"One-time download of '{self.config.model}' — "
-                         f"dictation becomes available when it finishes.")
+                         f"One-time download of '{self.config.model}' — the tray "
+                         f"menu shows the progress.")
+            threading.Thread(target=self._download_ticker, name="dl-ticker",
+                             daemon=True).start()
         self.engine.load()
         if self._tray is not None:
             self._tray.set_state("idle")  # refresh the status line
@@ -95,6 +97,13 @@ class Daemon:
     def _on_settle_timer(self) -> None:
         with self._lock:
             self._dispatch(self.sm.release_settled())
+
+    def _download_ticker(self) -> None:
+        """Refresh the tray status line while the model downloads."""
+        while self.engine.status.startswith("downloading"):
+            if self._tray is not None and self.sm.phase.name == "IDLE":
+                self._tray.set_state("idle")  # re-renders the status label
+            time.sleep(2)
 
     def _on_max_duration(self) -> None:
         log.warning("recording hit the %ds cap; stopping",
@@ -157,7 +166,7 @@ class Daemon:
             return
 
         log.info("recording stopped: %.1fs captured — transcribing", duration)
-        if self.engine.status in ("downloading", "loading"):
+        if self.engine.status.startswith(("downloading", "loading")):
             self._notify("Preparing the speech model",
                          "Your dictation is queued and will be transcribed "
                          "as soon as the model is ready.")

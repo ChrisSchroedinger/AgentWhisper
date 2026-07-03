@@ -2,6 +2,15 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.5 — 2026-07-04
+
+### Added
+- Live download progress for the speech model: the tray status line
+  shows "Downloading speech model… 47% (one time)" and `agentwhisper
+  status` shows `engine: downloading 47%`. Measured from bytes on disk
+  against the model's real size, so resumed downloads report correctly
+  too.
+
 ## 0.3.4 — 2026-07-04
 
 ### Fixed

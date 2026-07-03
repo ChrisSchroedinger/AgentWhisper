@@ -96,9 +96,9 @@ preview of what was heard). Prefer paste-only? Turn off *Auto-Type* in
 the tray menu — then it's clipboard + Ctrl+V.
 
 > **First run:** the speech model (~140MB for the default) downloads
-> automatically in the background when AgentWhisper starts. Until it
-> finishes, dictations wait for it. `agentwhisper status` shows the
-> progress on the `engine:` line (`loading` → `ready`).
+> automatically in the background when AgentWhisper starts. The tray
+> status line and `agentwhisper status` show the **live download
+> percentage**; dictations made before it finishes are queued.
 
 While AgentWhisper runs, **F12 belongs to it alone** — other programs
 won't see the key, so it can't accidentally trigger something else.
