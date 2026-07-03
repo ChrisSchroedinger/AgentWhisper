@@ -2,6 +2,15 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.4 — 2026-07-04
+
+### Fixed
+- After quitting mid-download, a restart claimed "Preparing speech
+  model" instead of "Downloading": the cache check only looked for the
+  model's directory, which a partial download already creates. The app
+  now verifies the model is completely downloaded, so the resumed
+  download is labeled (and notified) as a download again.
+
 ## 0.3.3 — 2026-07-04
 
 ### Fixed

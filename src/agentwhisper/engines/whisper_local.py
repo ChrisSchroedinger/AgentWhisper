@@ -8,10 +8,8 @@ that everything is offline.
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -39,9 +37,21 @@ class WhisperLocalEngine:
         return self._status
 
     def is_cached(self) -> bool:
-        """Best-effort: has this model been downloaded before?"""
-        hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-        return (hf_home / "hub" / f"models--Systran--faster-whisper-{self.model_name}").exists()
+        """True only if the model is COMPLETELY downloaded.
+
+        A directory-exists check is not enough: an interrupted download
+        leaves a partial cache directory behind, and the app would then
+        claim "loading" while it is actually resuming a download.
+        faster-whisper's own download helper with local_files_only=True
+        succeeds only when every required file is present.
+        """
+        try:
+            from faster_whisper.utils import download_model
+
+            download_model(self.model_name, local_files_only=True)
+            return True
+        except Exception:
+            return False
 
     def load(self) -> None:
         from faster_whisper import WhisperModel
