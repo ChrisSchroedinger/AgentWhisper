@@ -5,12 +5,12 @@ speak, release — your words are transcribed on your own computer and
 land in your clipboard, optionally typed straight into whatever you were
 writing. No cloud, no account, no internet needed after setup.
 
-> **Project status: feature-complete for daily dictation, still maturing.**
-> Everything in the description above works today: hold F12, speak,
-> release — the text is **typed into whatever you were writing** and is
-> also in your clipboard. Remaining before v1.0: polish (autostart on
-> login, a friendlier first-run model download, a .deb package). See the
-> [roadmap](#roadmap).
+> **Project status: v0.2 — deployable.** Everything in the description
+> above works today: hold F12, speak, release — the text is **typed into
+> whatever you were writing** and is also in your clipboard. In daily
+> use on MX Linux/XFCE. Remaining before v1.0: convenience polish
+> (autostart on login, friendlier first-run model download, a .deb
+> package). See the [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
 
 AgentWhisper is the from-scratch successor to
 [soupawhisper](https://github.com/ChrisSchroedinger/soupawhisper) (now

@@ -1,0 +1,38 @@
+# Changelog
+
+All notable changes to AgentWhisper are documented here.
+
+## 0.2.0 — 2026-07-04
+
+First deployable release. Complete push-to-talk dictation on X11/XFCE,
+verified in daily use on MX Linux.
+
+### Added
+- **Daemon + clients architecture**: `agentwhisperd` owns all state; the
+  Unix socket doubles as the single-instance lock. CLI client
+  (`agentwhisper status|toggle|mode|quit`) for everything the tray does.
+- **Exclusive system-wide hotkey** (X11 XGrabKey, F12 default): other
+  apps never see the key while the daemon runs; Ctrl/Alt+F12 bindings
+  elsewhere keep working. Grab conflicts are clear, actionable errors.
+- **Two recording modes**, switchable live from the tray or CLI:
+  hold-to-talk and press-to-toggle. Debounced against X11 auto-repeat.
+- **Recording OSD**: semi-transparent popup near the bottom of the
+  screen with green equalizer bars following the live microphone level.
+- **Local transcription** (faster-whisper, English): model loads in the
+  background at startup; first run downloads it to the shared
+  Hugging Face cache.
+- **Delivery**: clipboard always, auto-typing into the focused window
+  (toggleable); a typing failure never loses the text.
+- **Notifications** with transcript preview; replace instead of stack.
+- **Tray icon** via direct GTK/AyatanaAppIndicator bindings; red icon
+  while recording, live status line in the menu.
+- **Self-checking startup**: config validation, desktop-tool checks,
+  engine status — every failure names its fix. Logs at
+  `~/.local/state/agentwhisper/daemon.log`.
+- User-level `install.sh` / `uninstall.sh` (no sudo), XFCE menu entry.
+- 53 automated tests (state machine, config, IPC, full pipeline).
+
+### Known limitations
+- English only (multilingual is a designed-for future step)
+- X11 only (Wayland is a designed-for future step)
+- No autostart on login yet (milestone 5)
