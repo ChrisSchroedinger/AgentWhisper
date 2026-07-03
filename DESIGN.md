@@ -149,6 +149,9 @@ agentwhisper/
    guided first-run model download (downloading/loading/ready surfaced
    in tray + notifications), `.deb` packaging (build-deb.sh; venv in
    postinst, same pattern as install.sh).
+6. **AppImage** (planned): a single-file, distro-independent build.
+   Open question to solve: bundling Python + the GTK/AppIndicator
+   bindings that the venv approach borrows from the system.
 
 ## Future seams (explicitly designed for, not built)
 

@@ -174,6 +174,7 @@ If typing fails the text is still in your clipboard — Ctrl+V.
 | 3. Transcribes: speech → text in your clipboard (English) | ✅ done |
 | 4. Types the text into the active window + notifications | ✅ done |
 | 5. Polish: autostart, easy model download, .deb package | ✅ done |
+| 6. AppImage package (single-file, distro-independent) | planned |
 | Later: more languages, Wayland, agent mode | designed for |
 
 ## For developers
