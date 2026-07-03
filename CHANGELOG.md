@@ -2,6 +2,15 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.1 — 2026-07-04
+
+### Fixed
+- The `.deb` install printed alarming (but harmless) pip dependency
+  errors about unrelated system packages: with system-site-packages,
+  pip cross-checks apps that never see AgentWhisper's private
+  virtualenv. Suppressed with `--no-warn-conflicts` — our own
+  dependency set is resolved consistently from the lockfile.
+
 ## 0.3.0 — 2026-07-04
 
 ### Added
