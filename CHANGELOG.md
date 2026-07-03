@@ -5,7 +5,7 @@ All notable changes to AgentWhisper are documented here.
 ## 0.2.0 — 2026-07-04
 
 First deployable release. Complete push-to-talk dictation on X11/XFCE,
-verified in daily use on MX Linux.
+verified in daily use on Debian/Ubuntu.
 
 ### Added
 - **Daemon + clients architecture**: `agentwhisperd` owns all state; the

@@ -8,7 +8,7 @@ writing. No cloud, no account, no internet needed after setup.
 > **Project status: v0.2 — deployable.** Everything in the description
 > above works today: hold F12, speak, release — the text is **typed into
 > whatever you were writing** and is also in your clipboard. In daily
-> use on MX Linux/XFCE. Remaining before v1.0: convenience polish
+> use on Debian/Ubuntu with XFCE. Remaining before v1.0: convenience polish
 > (autostart on login, friendlier first-run model download, a .deb
 > package). See the [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
 
@@ -27,7 +27,7 @@ archived), rebuilt around the lessons learned there — see
 ## Requirements
 
 - Linux with **X11** (not Wayland). Built and tested on
-  **MX Linux with XFCE**; any Debian/Ubuntu-family desktop should work.
+  **Debian/Ubuntu with XFCE**; any Debian-family desktop should work.
 - **Python 3.11 or newer** (your distro's regular Python).
 - A microphone.
 - A few small system packages (tray icon, typing, clipboard,

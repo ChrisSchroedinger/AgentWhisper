@@ -15,7 +15,7 @@ where the name points, but v1 ships dictation only.
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Scope v1 | Dictation only | Do one thing perfectly; agent mode is a future client, not a v1 feature |
-| Platform | X11 now, Wayland-ready | MX Linux + XFCE = X11 for years; all display code behind one interface |
+| Platform | X11 now, Wayland-ready | Debian/Ubuntu + XFCE = X11 for years; all display code behind one interface |
 | Stack | Python 3.11+, uv, src/ layout | Fastest iteration for a solo project; uv kills the venv/packaging pain |
 | STT | Pluggable engine, local faster-whisper first | Private/offline v1; cloud or agent engines drop in later |
 
