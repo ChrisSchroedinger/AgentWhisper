@@ -1,7 +1,6 @@
 """The DesktopBackend contract: everything that touches the display
 server lives behind this, so Wayland later is a new module, not a
-rewrite. Milestone 3 needs copy(); type_text() and notify() join in
-milestone 4.
+rewrite.
 """
 
 from __future__ import annotations
@@ -22,4 +21,13 @@ class DesktopBackend(Protocol):
 
     def copy(self, text: str) -> None:
         """Put text on the clipboard. Raises DesktopError."""
+        ...
+
+    def type_text(self, text: str) -> None:
+        """Type text into the currently focused window. Raises DesktopError."""
+        ...
+
+    def notify(self, summary: str, body: str = "") -> None:
+        """Show a desktop notification, replacing the previous one from
+        this app (no notification stacking). Raises DesktopError."""
         ...

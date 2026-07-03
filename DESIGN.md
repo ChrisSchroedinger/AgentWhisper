@@ -141,10 +141,11 @@ agentwhisper/
    the OSD level visualizer, mode switching in the tray menu.
 3. **Transcribes** ✅: Engine interface + faster-whisper implementation
    (background load at startup), clipboard via the X11 DesktopBackend.
-4. **Types** ← current: auto-type via the X11 DesktopBackend;
-   notifications.
-5. **Hardens**: systemd unit, autostart option, model download UX,
-   `.deb` packaging.
+4. **Types** ✅: auto-type (xdotool --clearmodifiers) + notifications
+   (notify-send with the replace-don't-stack hint) via the X11
+   DesktopBackend; Auto-Type/Notifications toggles in the tray menu.
+5. **Hardens** ← current: systemd unit, autostart option, model
+   download UX, `.deb` packaging.
 
 ## Future seams (explicitly designed for, not built)
 

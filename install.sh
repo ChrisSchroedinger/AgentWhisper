@@ -59,6 +59,19 @@ if ! .venv/bin/python3 -c "import gi" 2>/dev/null; then
     echo ""
 fi
 
+# --- desktop tools (warn, don't fail) ----------------------------------
+MISSING=""
+for tool in xclip xdotool notify-send; do
+    command -v "$tool" >/dev/null 2>&1 || MISSING="$MISSING $tool"
+done
+if [ -n "$MISSING" ]; then
+    echo ""
+    echo "WARNING: missing desktop tools:$MISSING" >&2
+    echo "Typing/clipboard/notifications need them. Fix with:" >&2
+    echo "  sudo apt install xclip xdotool libnotify-bin" >&2
+    echo ""
+fi
+
 # --- launchers --------------------------------------------------------
 mkdir -p "$BIN_DIR"
 for name in agentwhisper agentwhisperd; do

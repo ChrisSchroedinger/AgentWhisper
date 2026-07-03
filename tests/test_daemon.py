@@ -27,6 +27,12 @@ class _FakeDesktop:
     def copy(self, text):
         pass
 
+    def type_text(self, text):
+        pass
+
+    def notify(self, summary, body=""):
+        pass
+
 
 @pytest.fixture
 def daemon():
@@ -44,7 +50,9 @@ class TestHandleRequest:
         assert s["enabled"] is True
         assert s["model"] == "base.en"
         assert s["engine"] == "ready"
-        assert s["clipboard"] == "ok"
+        assert s["desktop"] == "ok"
+        assert s["auto_type"] is True
+        assert s["notifications"] is True
         assert s["mode"] == "hold"
         assert s["hotkey"] == "f12"
         assert s["hotkey_status"] == "inactive"

@@ -96,6 +96,16 @@ class Tray:
         self._enabled_item.connect("toggled", self._on_enabled_toggled)
         menu.append(self._enabled_item)
 
+        self._autotype_item = Gtk.CheckMenuItem(label="Auto-Type into active window")
+        self._autotype_item.set_active(self._app.is_auto_type())
+        self._autotype_item.connect("toggled", self._on_autotype_toggled)
+        menu.append(self._autotype_item)
+
+        self._notify_item = Gtk.CheckMenuItem(label="Notifications")
+        self._notify_item.set_active(self._app.is_notifications())
+        self._notify_item.connect("toggled", self._on_notify_toggled)
+        menu.append(self._notify_item)
+
         mode_item = Gtk.MenuItem(label="Recording Mode")
         mode_menu = Gtk.Menu()
         self._mode_items = {}
@@ -132,6 +142,14 @@ class Tray:
         if not self._updating_menu and item.get_active():
             self._app.set_mode(mode)
             self._refresh_status_label()
+
+    def _on_autotype_toggled(self, item):
+        if not self._updating_menu:
+            self._app.set_auto_type(item.get_active())
+
+    def _on_notify_toggled(self, item):
+        if not self._updating_menu:
+            self._app.set_notifications(item.get_active())
 
     # -- state display (thread-safe) ----------------------------------------
 

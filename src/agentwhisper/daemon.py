@@ -149,19 +149,47 @@ class Daemon:
         try:
             text = self.engine.transcribe(samples, 16_000)
             if text:
-                self.desktop.copy(text)
-                log.info("transcribed %d characters → clipboard", len(text))
+                self._deliver(text)
             else:
                 log.info("no speech detected")
+                self._notify("No speech detected", "")
         except (EngineError, DesktopError) as e:
             log.error("transcription failed: %s", e)
+            self._notify("Transcription failed", str(e))
         except Exception:
             log.exception("unexpected transcription error")
+            self._notify("Transcription failed", "unexpected error — see daemon log")
         finally:
             if self._tray is not None:
                 self._tray.set_state("idle")
             with self._lock:
                 self._dispatch(self.sm.transcription_finished())
+
+    def _deliver(self, text: str) -> None:
+        """Clipboard always; typing on top when enabled. Clipboard goes
+        first so the text is safe even if typing fails."""
+        self.desktop.copy(text)
+        typed = False
+        if self.config.auto_type:
+            try:
+                self.desktop.type_text(text)
+                typed = True
+            except DesktopError as e:
+                log.error("auto-type failed (text is still in the clipboard): %s", e)
+                self._notify("Auto-type failed", f"{e} — the text is in your clipboard")
+                return
+        log.info("transcribed %d characters → %s", len(text),
+                 "typed + clipboard" if typed else "clipboard")
+        preview = text if len(text) <= 80 else text[:77] + "…"
+        self._notify("Typed & copied" if typed else "Copied to clipboard", preview)
+
+    def _notify(self, summary: str, body: str) -> None:
+        if not self.config.notifications:
+            return
+        try:
+            self.desktop.notify(summary, body)
+        except DesktopError as e:
+            log.warning("notification failed: %s", e)
 
     def _cancel_timer(self, name: str) -> None:
         timer = getattr(self, name)
@@ -192,6 +220,22 @@ class Daemon:
     def hotkey_name(self) -> str:
         return self.config.hotkey
 
+    def is_auto_type(self) -> bool:
+        return self.config.auto_type
+
+    def set_auto_type(self, enabled: bool) -> None:
+        self.config.auto_type = enabled
+        config_mod.save(self.config)
+        log.info("auto-type %s", "on" if enabled else "off")
+
+    def is_notifications(self) -> bool:
+        return self.config.notifications
+
+    def set_notifications(self, enabled: bool) -> None:
+        self.config.notifications = enabled
+        config_mod.save(self.config)
+        log.info("notifications %s", "on" if enabled else "off")
+
     def quit(self) -> None:
         log.info("shutdown requested")
         with self._lock:
@@ -213,7 +257,9 @@ class Daemon:
                 enabled=self.sm.enabled,
                 model=self.config.model,
                 engine=self.engine.status,
-                clipboard="; ".join(self.desktop_problems) or "ok",
+                desktop="; ".join(self.desktop_problems) or "ok",
+                auto_type=self.config.auto_type,
+                notifications=self.config.notifications,
                 mode=self.sm.mode,
                 hotkey=self.config.hotkey,
                 hotkey_status=self.hotkey_status,

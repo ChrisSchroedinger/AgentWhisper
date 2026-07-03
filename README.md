@@ -5,12 +5,12 @@ speak, release — your words are transcribed on your own computer and
 land in your clipboard, optionally typed straight into whatever you were
 writing. No cloud, no account, no internet needed after setup.
 
-> ⚠️ **Project status: in active development — usable, with rough edges.**
-> What works today: install, tray icon, exclusive hotkey, recording with
-> a live voice visualizer, and **transcription — your speech becomes
-> text in the clipboard** (paste it anywhere with Ctrl+V).
-> Still missing: automatic typing into the active window and desktop
-> notifications — that's the next milestone. See the [roadmap](#roadmap).
+> **Project status: feature-complete for daily dictation, still maturing.**
+> Everything in the description above works today: hold F12, speak,
+> release — the text is **typed into whatever you were writing** and is
+> also in your clipboard. Remaining before v1.0: polish (autostart on
+> login, a friendlier first-run model download, a .deb package). See the
+> [roadmap](#roadmap).
 
 AgentWhisper is the from-scratch successor to
 [soupawhisper](https://github.com/ChrisSchroedinger/soupawhisper) (now
@@ -30,10 +30,12 @@ archived), rebuilt around the lessons learned there — see
   **MX Linux with XFCE**; any Debian/Ubuntu-family desktop should work.
 - **Python 3.11 or newer** (your distro's regular Python).
 - A microphone.
-- Two small system packages for the tray icon:
+- A few small system packages (tray icon, typing, clipboard,
+  notifications) — most are preinstalled on XFCE:
 
   ```bash
-  sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1
+  sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1 \
+                   xclip xdotool libnotify-bin
   ```
 
 ## Install
@@ -72,8 +74,11 @@ in the tray.
 | **Hold to talk** (default) | Hold F12, speak, release. |
 | **Press to toggle** | Press F12 to start, press F12 again to stop. |
 
-When you stop, the tray shows *Transcribing…* for a moment and then the
-text is **in your clipboard** — paste it anywhere with Ctrl+V.
+When you stop, the tray shows *Transcribing…* for a moment, then the
+text is **typed straight into the window you're working in** and placed
+in your clipboard as backup. A small notification confirms it (with a
+preview of what was heard). Prefer paste-only? Turn off *Auto-Type* in
+the tray menu — then it's clipboard + Ctrl+V.
 
 > **First run:** the speech model (~140MB for the default) downloads
 > automatically in the background when AgentWhisper starts. Until it
@@ -88,6 +93,9 @@ won't see the key, so it can't accidentally trigger something else.
 
 - a status line telling you what to do in the current mode
 - **Enabled** — pause/resume dictation without quitting
+- **Auto-Type into active window** — on: text is typed for you;
+  off: clipboard only
+- **Notifications** — the "Typed & copied" confirmations on/off
 - **Recording Mode** — hold-to-talk vs. press-to-toggle
 - **Quit AgentWhisper**
 
@@ -111,6 +119,7 @@ run, with comments). The interesting ones:
 | `mode` | `hold` | `hold` = push-to-talk, `toggle` = press to start/stop |
 | `model` | `base.en` | Whisper model: `tiny.en` (fastest) … `medium.en` (most accurate) |
 | `auto_type` | `true` | Type the text into the active window (besides copying it) |
+| `notifications` | `true` | Desktop notification after each dictation |
 | `max_record_seconds` | `60` | Safety cap on a single recording |
 
 Restart AgentWhisper after editing the file. (Mode can also be changed
@@ -129,11 +138,12 @@ different key in the config file.
 **No green bars while recording?** Check `agentwhisper status` →
 `visualizer:`. If unavailable, install `python3-gi-cairo` and restart.
 
-**Dictated but nothing in the clipboard?** Check `agentwhisper status`:
+**Dictated but no text appeared?** Check `agentwhisper status`:
 `engine:` must say `ready` (`loading` means the model is still
-downloading — first run only), and `clipboard:` must say `ok` (if not,
-`sudo apt install xclip`). Very short taps (under ~0.3s) are ignored on
-purpose, and silence transcribes to nothing.
+downloading — first run only), and `desktop:` must say `ok` (if not, it
+names the missing tool and the apt command). Very short taps (under
+~0.3s) are ignored on purpose, and silence transcribes to nothing.
+If typing fails the text is still in your clipboard — Ctrl+V.
 
 **Where are the logs?** `~/.local/state/agentwhisper/daemon.log`.
 
@@ -144,15 +154,15 @@ purpose, and silence transcribes to nothing.
 | 1. Installs, runs once, tray icon + menu | ✅ done |
 | 2. Records: exclusive hotkey, mic capture, voice visualizer | ✅ done |
 | 3. Transcribes: speech → text in your clipboard (English) | ✅ done |
-| 4. Types the text into the active window + notifications | 🔜 next |
-| 5. Polish: autostart, easy model download, .deb package | planned |
+| 4. Types the text into the active window + notifications | ✅ done |
+| 5. Polish: autostart, easy model download, .deb package | 🔜 next |
 | Later: more languages, Wayland, agent mode | designed for |
 
 ## For developers
 
 ```bash
 ./install.sh       # sets up the venv (needs system Python + GTK bindings)
-uv run pytest      # 47 tests
+uv run pytest      # 53 tests
 uv run ruff check .
 ```
 

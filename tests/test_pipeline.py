@@ -47,8 +47,11 @@ class FakeEngine:
 
 
 class FakeDesktop:
-    def __init__(self):
+    def __init__(self, type_error=None):
         self.copied: list[str] = []
+        self.typed: list[str] = []
+        self.notifications: list[tuple[str, str]] = []
+        self.type_error = type_error
 
     def check(self):
         return []
@@ -56,13 +59,22 @@ class FakeDesktop:
     def copy(self, text):
         self.copied.append(text)
 
+    def type_text(self, text):
+        if self.type_error:
+            raise self.type_error
+        self.typed.append(text)
 
-def make_daemon(mode="hold", duration=1.0, text="hello world", error=None):
+    def notify(self, summary, body=""):
+        self.notifications.append((summary, body))
+
+
+def make_daemon(mode="hold", duration=1.0, text="hello world", error=None,
+                type_error=None, **config_kwargs):
     daemon = Daemon(
-        Config(mode=mode),
+        Config(mode=mode, **config_kwargs),
         recorder=FakeRecorder(duration),
         engine=FakeEngine(text, error),
-        desktop=FakeDesktop(),
+        desktop=FakeDesktop(type_error),
     )
     return daemon
 
@@ -130,3 +142,51 @@ class TestPipeline:
             press_and_release(daemon)
             wait_idle(daemon)
         assert daemon.desktop.copied == ["hello world"] * 3
+
+
+class TestDelivery:
+    def test_auto_type_types_and_copies(self):
+        daemon = make_daemon(auto_type=True)
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.copied == ["hello world"]
+        assert daemon.desktop.typed == ["hello world"]
+        assert daemon.desktop.notifications[-1][0] == "Typed & copied"
+
+    def test_auto_type_off_only_copies(self):
+        daemon = make_daemon(auto_type=False)
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.copied == ["hello world"]
+        assert daemon.desktop.typed == []
+        assert daemon.desktop.notifications[-1][0] == "Copied to clipboard"
+
+    def test_type_failure_keeps_clipboard_and_reports(self):
+        from agentwhisper.desktop.base import DesktopError
+
+        daemon = make_daemon(auto_type=True, type_error=DesktopError("no xdotool"))
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.copied == ["hello world"]  # text not lost
+        assert daemon.desktop.notifications[-1][0] == "Auto-type failed"
+
+    def test_no_speech_notifies(self):
+        daemon = make_daemon(text="")
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.notifications[-1][0] == "No speech detected"
+
+    def test_notifications_off_is_silent(self):
+        daemon = make_daemon(notifications=False)
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.copied == ["hello world"]
+        assert daemon.desktop.notifications == []
+
+    def test_long_text_preview_is_truncated(self):
+        daemon = make_daemon(text="word " * 40)
+        press_and_release(daemon)
+        wait_idle(daemon)
+        _summary, body = daemon.desktop.notifications[-1]
+        assert len(body) <= 80
+        assert body.endswith("…")
