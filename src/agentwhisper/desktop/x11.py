@@ -31,21 +31,21 @@ class X11Desktop:
 
     def copy(self, text: str) -> None:
         try:
-            # xclip forks and owns the selection; a short timeout only
-            # guards the handover, not the clipboard's lifetime.
+            # xclip forks a background child that owns the selection and
+            # inherits our fds. Any PIPE here would be held open by that
+            # child, blocking run() until the timeout — so no pipes at all.
             subprocess.run(
                 ["xclip", "-selection", "clipboard"],
                 input=text.encode(),
                 timeout=5,
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
             )
         except FileNotFoundError as e:
             raise DesktopError("xclip is not installed — sudo apt install xclip") from e
         except subprocess.CalledProcessError as e:
-            stderr = (e.stderr or b"").decode(errors="replace").strip()
-            raise DesktopError(f"xclip failed: {stderr or e}") from e
+            raise DesktopError(f"xclip failed (exit {e.returncode})") from e
         except subprocess.TimeoutExpired as e:
             raise DesktopError("xclip timed out taking the clipboard") from e
 
