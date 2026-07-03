@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=AgentWhisper
+Comment=Push-to-talk voice dictation using Whisper
+Exec=@BINDIR@/agentwhisperd
+Icon=agentwhisper
+Terminal=false
+Categories=Utility;Audio;X-XFCE;X-Xfce-Toplevel;
+Keywords=dictation;speech;voice;whisper;transcription;
+StartupNotify=false
