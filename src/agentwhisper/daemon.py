@@ -116,6 +116,7 @@ class Daemon:
                 self._cancel_timer("_settle_timer")
                 self._settle_timer = threading.Timer(
                     RELEASE_DEBOUNCE_SECONDS, self._on_settle_timer)
+                self._settle_timer.daemon = True
                 self._settle_timer.start()
             elif action is Action.CANCEL_SETTLE:
                 self._cancel_timer("_settle_timer")
@@ -130,6 +131,7 @@ class Daemon:
         log.info("recording started")
         self._max_timer = threading.Timer(
             self.config.max_record_seconds, self._on_max_duration)
+        self._max_timer.daemon = True
         self._max_timer.start()
         if self._tray is not None:
             self._tray.set_state("recording")
@@ -318,7 +320,9 @@ class Daemon:
             return ipc.ok(mode=mode)
         if cmd == "quit":
             # Reply first, then shut down, so the client gets its answer.
-            threading.Timer(0.1, self.quit).start()
+            timer = threading.Timer(0.1, self.quit)
+            timer.daemon = True
+            timer.start()
             return ipc.ok(quitting=True)
         return ipc.error(f"unknown command {cmd!r}")
 
@@ -449,7 +453,14 @@ def main() -> int:
         server.server_close()
         sock_path.unlink(missing_ok=True)
         log.info("agentwhisperd stopped")
-    return exit_code
+        # Library worker threads (e.g. Hugging Face's model-download
+        # pool) are non-daemon: a normal exit would wait minutes for
+        # them, leaving a zombie process with a frozen tray icon while
+        # the socket is already free — a restart then shows two icons.
+        # Cleanup is done and the download resumes on next start, so
+        # end the process for real.
+        logging.shutdown()
+        os._exit(exit_code)
 
 
 def _wait_headless(daemon: Daemon) -> None:

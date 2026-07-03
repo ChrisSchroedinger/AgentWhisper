@@ -2,6 +2,16 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.3 — 2026-07-04
+
+### Fixed
+- Quitting during the model download left a zombie process with a
+  frozen tray icon (the downloader's worker threads kept the dead
+  daemon alive), and a restart then showed two icons. The daemon now
+  terminates for real after cleanup — the interrupted download simply
+  resumes on the next start — and the tray icon unregisters itself the
+  moment you quit.
+
 ## 0.3.2 — 2026-07-04
 
 ### Changed

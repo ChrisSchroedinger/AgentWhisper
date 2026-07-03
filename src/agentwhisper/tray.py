@@ -63,6 +63,7 @@ class Tray:
         Gtk, GLib, AppIndicator = _import_gtk()
         self._gtk = Gtk
         self._glib = GLib
+        self._appindicator = AppIndicator
         self._app = app
         self._updating_menu = False  # guard against signal feedback loops
 
@@ -213,8 +214,19 @@ class Tray:
         return self._glib.SOURCE_REMOVE
 
     def stop(self):
-        """Thread-safe: ends the GTK main loop."""
-        self._glib.idle_add(self._gtk.main_quit)
+        """Thread-safe: unregisters the icon and ends the GTK main loop."""
+        self._glib.idle_add(self._stop_on_gtk_thread)
+
+    def _stop_on_gtk_thread(self) -> bool:
+        import contextlib
+
+        # Hide the indicator explicitly so the panel icon disappears the
+        # instant the user quits, even if the process needs a moment to die.
+        with contextlib.suppress(Exception):
+            self.indicator.set_status(
+                self._appindicator.IndicatorStatus.PASSIVE)
+        self._gtk.main_quit()
+        return False
 
 
 def create_tray(app) -> Tray:
