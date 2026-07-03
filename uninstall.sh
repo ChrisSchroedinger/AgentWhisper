@@ -39,3 +39,5 @@ else
 fi
 
 echo "Done. Reinstall any time with: $REPO_DIR/install.sh"
+echo "Note: if an open terminal says 'file not found' for agentwhisper,"
+echo "run 'hash -r' there (bash caches command locations)."
