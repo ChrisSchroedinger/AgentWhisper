@@ -5,6 +5,8 @@ speak, release — your words are transcribed on your own computer and
 land in your clipboard, optionally typed straight into whatever you were
 writing. No cloud, no account, no internet needed after setup.
 
+**Website:** [chrisschroedinger.github.io/AgentWhisper](https://chrisschroedinger.github.io/AgentWhisper/)
+
 > **Project status: v0.3 — deployable.** Everything in the description
 > above works today: hold F12, speak, release — the text is **typed into
 > whatever you were writing** and is also in your clipboard. Optional
