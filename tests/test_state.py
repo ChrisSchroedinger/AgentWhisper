@@ -113,6 +113,42 @@ class TestLifecycle:
         assert sm.shutdown() == []
 
 
+class TestCancel:
+    def test_cancel_mid_recording_aborts(self):
+        sm = DictationStateMachine(mode="hold")
+        sm.key_pressed()
+        assert sm.cancel_requested() == [Action.ABORT_RECORDING]
+        assert sm.phase is Phase.IDLE
+
+    def test_hotkey_release_after_cancel_does_nothing(self):
+        """Hold mode: Esc fires while the hotkey is still held; the
+        release that follows must not start a transcription."""
+        sm = DictationStateMachine(mode="hold")
+        sm.key_pressed()
+        sm.cancel_requested()
+        assert sm.key_released() == [Action.SCHEDULE_SETTLE]
+        assert sm.release_settled() == []
+        assert sm.phase is Phase.IDLE
+        # And the next press records again.
+        assert sm.key_pressed() == [Action.START_RECORDING]
+
+    def test_cancel_in_toggle_mode_then_restart(self):
+        sm = DictationStateMachine(mode="toggle")
+        sm.key_pressed()
+        sm.key_released()
+        sm.release_settled()
+        assert sm.cancel_requested() == [Action.ABORT_RECORDING]
+        assert sm.key_pressed() == [Action.START_RECORDING]
+
+    def test_cancel_when_idle_or_transcribing_is_a_noop(self):
+        sm = DictationStateMachine(mode="hold")
+        assert sm.cancel_requested() == []
+        sm.key_pressed()
+        sm.max_duration_reached()  # now TRANSCRIBING
+        assert sm.cancel_requested() == []
+        assert sm.phase is Phase.TRANSCRIBING
+
+
 class TestModeSwitching:
     def test_switch_while_idle_is_silent(self):
         sm = DictationStateMachine(mode="hold")

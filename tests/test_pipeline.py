@@ -210,6 +210,52 @@ class TestDelivery:
         assert body.endswith("…")
 
 
+class FakeListener:
+    def __init__(self):
+        self.cancel_grabs: list[bool] = []
+
+    def set_cancel_grab(self, active):
+        self.cancel_grabs.append(active)
+
+
+class TestCancelGesture:
+    def test_escape_discards_the_recording(self):
+        daemon = make_daemon()
+        daemon.on_hotkey_press()  # hold mode: recording now
+        assert daemon.on_cancel_key() is True
+        assert daemon.engine.calls == 0
+        assert daemon.desktop.copied == []
+        assert daemon.desktop.notifications[-1][0] == "Dictation cancelled"
+        # The still-held hotkey's release must not transcribe either.
+        daemon.on_hotkey_release()
+        daemon._on_settle_timer()
+        wait_idle(daemon)
+        assert daemon.engine.calls == 0
+        # And the next dictation works normally.
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon.desktop.copied == ["hello world"]
+
+    def test_cancel_when_idle_is_a_noop(self):
+        daemon = make_daemon()
+        assert daemon.on_cancel_key() is False
+        assert daemon.desktop.notifications == []
+
+    def test_escape_grab_tracks_recording(self):
+        daemon = make_daemon()
+        daemon._hotkey_listener = FakeListener()
+        press_and_release(daemon)
+        wait_idle(daemon)
+        assert daemon._hotkey_listener.cancel_grabs == [True, False]
+
+    def test_escape_grab_released_on_cancel(self):
+        daemon = make_daemon()
+        daemon._hotkey_listener = FakeListener()
+        daemon.on_hotkey_press()
+        daemon.on_cancel_key()
+        assert daemon._hotkey_listener.cancel_grabs == [True, False]
+
+
 class TestTargetWindow:
     def test_target_gets_text_normal_typing_skipped(self):
         daemon = make_daemon(auto_type=True)

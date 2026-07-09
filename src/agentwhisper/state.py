@@ -102,6 +102,18 @@ class DictationStateMachine:
 
     # -- other events ---------------------------------------------------
 
+    def cancel_requested(self) -> list[Action]:
+        """The cancel key (Escape): discard an active recording.
+
+        In hold mode the hotkey is usually still physically held when
+        this fires; its eventual release settles in IDLE and does
+        nothing — no transcription sneaks in behind the cancel.
+        """
+        if self.phase is Phase.RECORDING:
+            self.phase = Phase.IDLE
+            return [Action.ABORT_RECORDING]
+        return []
+
     def max_duration_reached(self) -> list[Action]:
         if self.phase is Phase.RECORDING:
             self.phase = Phase.TRANSCRIBING

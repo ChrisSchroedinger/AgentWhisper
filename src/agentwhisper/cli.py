@@ -106,6 +106,15 @@ def cmd_target(action: str) -> int:
     return 0
 
 
+def cmd_cancel() -> int:
+    s = _request({"cmd": "cancel"})
+    if not s.get("ok"):
+        print(f"error: {s.get('error')}", file=sys.stderr)
+        return 1
+    print("recording cancelled" if s["cancelled"] else "no recording to cancel")
+    return 0
+
+
 def cmd_autostart(state: str) -> int:
     s = _request({"cmd": "set-autostart", "enabled": state == "on"})
     if not s.get("ok"):
@@ -144,6 +153,7 @@ def main() -> int:
                                help="choose = click a window, clear = back to normal")
     autostart_parser = sub.add_parser("autostart", help="start AgentWhisper at login")
     autostart_parser.add_argument("state", choices=["on", "off"])
+    sub.add_parser("cancel", help="discard the recording in progress (same as Esc)")
     sub.add_parser("quit", help="stop the daemon")
     args = parser.parse_args()
 
@@ -156,7 +166,8 @@ def main() -> int:
             return cmd_target(args.action)
         if args.command == "autostart":
             return cmd_autostart(args.state)
-        handlers = {"status": cmd_status, "toggle": cmd_toggle, "quit": cmd_quit}
+        handlers = {"status": cmd_status, "toggle": cmd_toggle,
+                    "cancel": cmd_cancel, "quit": cmd_quit}
         return handlers[args.command]()
     except (FileNotFoundError, ConnectionRefusedError):
         return _daemon_not_running()

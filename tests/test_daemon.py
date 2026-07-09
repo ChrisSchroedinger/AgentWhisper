@@ -130,6 +130,11 @@ class TestHandleRequest:
         daemon.desktop.list_windows = broken
         assert daemon.list_target_windows() == []
 
+    def test_cancel_idle_reports_nothing_to_cancel(self, daemon):
+        response = daemon.handle_request({"cmd": "cancel"})
+        assert response["ok"] is True
+        assert response["cancelled"] is False
+
     def test_set_and_clear_target(self, daemon):
         response = daemon.handle_request({"cmd": "set-target"})
         assert response["ok"] is True

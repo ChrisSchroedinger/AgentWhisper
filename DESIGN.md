@@ -81,6 +81,8 @@ where the name points, but v1 ships dictation only.
 - Target-window mode (session-only): all dictations typed into one
   chosen window + submitted with Enter — the hands-free step toward
   agent mode
+- Cancel gesture: Esc discards an active recording; Esc is grabbed
+  only while recording, untouched otherwise
 - Desktop notifications for state changes (toggleable)
 - Tray icon with menu (toggle, model, quit)
 - `agentwhisper` CLI for everything the tray does, plus `status` and `logs`

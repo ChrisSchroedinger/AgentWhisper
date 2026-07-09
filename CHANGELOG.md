@@ -2,6 +2,17 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.4.0 — 2026-07-09
+
+### Added
+- Cancel a recording with **Esc**: changed your mind mid-dictation?
+  Press Escape and the recording is discarded — nothing is transcribed
+  or typed. Esc is reserved only while a recording is running; the
+  rest of the time it reaches your applications untouched. Also
+  available as `agentwhisper cancel`.
+
+(0.4.0 rather than 0.3.11: version components cap at 9 and roll over.)
+
 ## 0.3.10 — 2026-07-09
 
 ### Changed

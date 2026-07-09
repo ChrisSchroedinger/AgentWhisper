@@ -63,6 +63,7 @@ class Daemon:
         self._shutdown = threading.Event()
         self._tray = None
         self._visualizer = None
+        self._hotkey_listener = None
         # Session-only (window ids do not survive restarts): when set,
         # every dictation is typed into this window and submitted.
         self._target_window: tuple[str, str] | None = None  # (id, title)
@@ -100,6 +101,16 @@ class Daemon:
     def on_hotkey_release(self) -> None:
         with self._lock:
             self._dispatch(self.sm.key_released())
+
+    def on_cancel_key(self) -> bool:
+        """Discard an active recording (Escape). True if one was cancelled."""
+        with self._lock:
+            actions = self.sm.cancel_requested()
+            self._dispatch(actions)
+        cancelled = Action.ABORT_RECORDING in actions
+        if cancelled:
+            self._notify("Dictation cancelled", "The recording was discarded.")
+        return cancelled
 
     def _on_settle_timer(self) -> None:
         with self._lock:
@@ -150,6 +161,7 @@ class Daemon:
             self._dispatch(self.sm.max_duration_reached())  # back to idle
             return
         log.info("recording started")
+        self._set_cancel_grab(True)
         self._max_timer = threading.Timer(
             self.config.max_record_seconds, self._on_max_duration)
         self._max_timer.daemon = True
@@ -160,6 +172,7 @@ class Daemon:
             self._visualizer.show()
 
     def _stop_recording(self, discard: bool) -> None:
+        self._set_cancel_grab(False)
         self._cancel_timer("_max_timer")
         samples, duration = self.recorder.stop()
         if self._visualizer is not None:
@@ -257,6 +270,12 @@ class Daemon:
             self.desktop.notify(summary, body)
         except DesktopError as e:
             log.warning("notification failed: %s", e)
+
+    def _set_cancel_grab(self, active: bool) -> None:
+        """Escape is reserved only while recording, so it stays a normal
+        key for every application the rest of the time."""
+        if self._hotkey_listener is not None:
+            self._hotkey_listener.set_cancel_grab(active)
 
     def _cancel_timer(self, name: str) -> None:
         timer = getattr(self, name)
@@ -439,6 +458,8 @@ class Daemon:
         if cmd == "clear-target":
             self.clear_target_window()
             return ipc.ok(target_window=None)
+        if cmd == "cancel":
+            return ipc.ok(cancelled=self.on_cancel_key())
         if cmd == "quit":
             # Reply first, then shut down, so the client gets its answer.
             timer = threading.Timer(0.1, self.quit)
@@ -537,7 +558,9 @@ def main() -> int:
     from agentwhisper.hotkey import HotkeyError, X11HotkeyListener
 
     listener = X11HotkeyListener(cfg.hotkey, daemon.on_hotkey_press,
-                                 daemon.on_hotkey_release)
+                                 daemon.on_hotkey_release,
+                                 daemon.on_cancel_key)
+    daemon._hotkey_listener = listener
     try:
         listener.start()
         daemon.hotkey_status = "grabbed (exclusive)"

@@ -91,6 +91,10 @@ in the tray.
 | **Hold to talk** (default) | Hold F12, speak, release. |
 | **Press to toggle** | Press F12 to start, press F12 again to stop. |
 
+**Changed your mind?** Press **Esc** while recording and it is thrown
+away — nothing is transcribed or typed. (Esc is only reserved during a
+recording; the rest of the time it works normally everywhere.)
+
 When you stop, the tray shows *Transcribing…* for a moment, then the
 text is **typed straight into the window you're working in** and placed
 in your clipboard as backup. A small notification confirms it (with a
@@ -142,6 +146,7 @@ agentwhisper toggle    # enable/disable dictation
 agentwhisper mode toggle   # or: hold
 agentwhisper limit 120     # max seconds per recording (30-600)
 agentwhisper target choose # send every dictation to one window (or: clear)
+agentwhisper cancel        # discard the recording in progress (same as Esc)
 agentwhisper autostart on  # start with your session (or: off)
 agentwhisper quit
 ```
