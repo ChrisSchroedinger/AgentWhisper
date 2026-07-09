@@ -39,6 +39,19 @@ def test_multilingual_model_is_rejected_in_v1(tmp_path):
         load(p)
 
 
+@pytest.mark.parametrize("seconds", [29, 601, 0])
+def test_out_of_range_limit_is_rejected(tmp_path, seconds):
+    p = write(tmp_path, f"[limits]\nmax_record_seconds = {seconds}\n")
+    with pytest.raises(ConfigError, match="between 30 and 600"):
+        load(p)
+
+
+@pytest.mark.parametrize("seconds", [30, 600])
+def test_limit_range_bounds_are_accepted(tmp_path, seconds):
+    p = write(tmp_path, f"[limits]\nmax_record_seconds = {seconds}\n")
+    assert load(p).max_record_seconds == seconds
+
+
 def test_all_problems_reported_at_once(tmp_path):
     p = write(tmp_path, """
 [whisper]

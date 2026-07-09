@@ -23,6 +23,18 @@ MODE_LABELS = {
     "toggle": "Press to toggle (press to start/stop)",
 }
 
+# Offered recording limits (seconds), spanning the allowed range
+# (config.LIMIT_MIN..LIMIT_MAX). A hand-edited config value between
+# presets still shows up in the menu as its own "(custom)" entry.
+LIMIT_PRESETS = [30, 60, 120, 300, 600]
+
+
+def _limit_label(seconds: int) -> str:
+    if seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes} minute" + ("s" if minutes != 1 else "")
+    return f"{seconds} seconds"
+
 
 class TrayUnavailable(Exception):
     """Tray cannot run; the message says why and how to fix it."""
@@ -59,7 +71,8 @@ class Tray:
 
     def __init__(self, app):
         """`app` provides: is_enabled(), set_enabled(bool), get_mode(),
-        set_mode(str), hotkey_name(), quit()."""
+        set_mode(str), get_max_record_seconds(), set_max_record_seconds(int),
+        hotkey_name(), quit()."""
         Gtk, GLib, AppIndicator = _import_gtk()
         self._gtk = Gtk
         self._glib = GLib
@@ -128,6 +141,27 @@ class Tray:
         mode_item.set_submenu(mode_menu)
         menu.append(mode_item)
 
+        limit_item = Gtk.MenuItem(label="Recording Limit")
+        limit_menu = Gtk.Menu()
+        self._limit_items = {}
+        group = None
+        current = self._app.get_max_record_seconds()
+        offered = sorted(set(LIMIT_PRESETS) | {current})
+        for seconds in offered:
+            label = _limit_label(seconds)
+            if seconds not in LIMIT_PRESETS:
+                label += " (custom)"
+            item = Gtk.RadioMenuItem(label=label, group=group)
+            group = item
+            item.connect("toggled", self._on_limit_toggled, seconds)
+            self._limit_items[seconds] = item
+            limit_menu.append(item)
+        self._updating_menu = True
+        self._limit_items[current].set_active(True)
+        self._updating_menu = False
+        limit_item.set_submenu(limit_menu)
+        menu.append(limit_item)
+
         menu.append(Gtk.SeparatorMenuItem())
 
         quit_item = Gtk.MenuItem(label="Quit AgentWhisper")
@@ -148,6 +182,10 @@ class Tray:
         if not self._updating_menu and item.get_active():
             self._app.set_mode(mode)
             self._refresh_status_label()
+
+    def _on_limit_toggled(self, item, seconds):
+        if not self._updating_menu and item.get_active():
+            self._app.set_max_record_seconds(seconds)
 
     def _on_autotype_toggled(self, item):
         if not self._updating_menu:

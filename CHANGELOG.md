@@ -2,6 +2,23 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.8 — 2026-07-09
+
+### Added
+- The recording limit (the safety cap that stops a stuck key from
+  recording forever) can now be changed without editing config.toml:
+  tray menu → *Recording Limit* (presets from 30 seconds to 10 minutes;
+  a hand-edited custom value keeps its own entry) or
+  `agentwhisper limit <seconds>`. Changes apply from the next recording
+  and are saved to config.toml. `agentwhisper status` now shows the
+  current limit.
+
+### Changed
+- `max_record_seconds` is now validated to the range 30–600 seconds
+  (was: any positive integer) — everywhere: config.toml, the tray menu,
+  and the CLI. An out-of-range value in a hand-edited config is
+  rejected at startup with a message saying the allowed range.
+
 ## 0.3.7 — 2026-07-04
 
 ### Changed

@@ -255,6 +255,14 @@ class Daemon:
     def hotkey_name(self) -> str:
         return self.config.hotkey
 
+    def get_max_record_seconds(self) -> int:
+        return self.config.max_record_seconds
+
+    def set_max_record_seconds(self, seconds: int) -> None:
+        self.config.max_record_seconds = seconds
+        config_mod.save(self.config)
+        log.info("recording limit set to %ds", seconds)
+
     def engine_status(self) -> str:
         return self.engine.status
 
@@ -309,6 +317,7 @@ class Daemon:
                 auto_type=self.config.auto_type,
                 notifications=self.config.notifications,
                 mode=self.sm.mode,
+                max_record_seconds=self.config.max_record_seconds,
                 autostart=autostart.is_enabled(),
                 hotkey=self.config.hotkey,
                 hotkey_status=self.hotkey_status,
@@ -332,6 +341,15 @@ class Daemon:
                 return ipc.error(f"mode must be 'hold' or 'toggle', not {mode!r}")
             self.set_mode(mode)
             return ipc.ok(mode=mode)
+        if cmd == "set-limit":
+            seconds = message.get("seconds")
+            if (isinstance(seconds, bool) or not isinstance(seconds, int)
+                    or not config_mod.LIMIT_MIN <= seconds <= config_mod.LIMIT_MAX):
+                return ipc.error(
+                    f"set-limit needs seconds: an integer between "
+                    f"{config_mod.LIMIT_MIN} and {config_mod.LIMIT_MAX}")
+            self.set_max_record_seconds(seconds)
+            return ipc.ok(max_record_seconds=seconds)
         if cmd == "quit":
             # Reply first, then shut down, so the client gets its answer.
             timer = threading.Timer(0.1, self.quit)

@@ -50,6 +50,7 @@ def cmd_status() -> int:
     print(f"  auto-type:  {s['auto_type']}")
     print(f"  notify:     {s['notifications']}")
     print(f"  mode:       {s['mode']}")
+    print(f"  limit:      {s['max_record_seconds']}s")
     print(f"  autostart:  {s['autostart']}")
     print(f"  hotkey:     {s['hotkey']} — {s['hotkey_status']}")
     print(f"  tray:       {s['tray']}")
@@ -73,6 +74,15 @@ def cmd_mode(mode: str) -> int:
         print(f"error: {s.get('error')}", file=sys.stderr)
         return 1
     print(f"recording mode set to {s['mode']}")
+    return 0
+
+
+def cmd_limit(seconds: int) -> int:
+    s = _request({"cmd": "set-limit", "seconds": seconds})
+    if not s.get("ok"):
+        print(f"error: {s.get('error')}", file=sys.stderr)
+        return 1
+    print(f"recording limit set to {s['max_record_seconds']} seconds")
     return 0
 
 
@@ -105,6 +115,9 @@ def main() -> int:
     mode_parser = sub.add_parser("mode", help="set the recording mode")
     mode_parser.add_argument("mode", choices=["hold", "toggle"],
                              help="hold = push-to-talk, toggle = press to start/stop")
+    limit_parser = sub.add_parser("limit", help="set the max recording length")
+    limit_parser.add_argument("seconds", type=int,
+                              help="hard cap on a single recording, in seconds (30-600)")
     autostart_parser = sub.add_parser("autostart", help="start AgentWhisper at login")
     autostart_parser.add_argument("state", choices=["on", "off"])
     sub.add_parser("quit", help="stop the daemon")
@@ -113,6 +126,8 @@ def main() -> int:
     try:
         if args.command == "mode":
             return cmd_mode(args.mode)
+        if args.command == "limit":
+            return cmd_limit(args.seconds)
         if args.command == "autostart":
             return cmd_autostart(args.state)
         handlers = {"status": cmd_status, "toggle": cmd_toggle, "quit": cmd_quit}

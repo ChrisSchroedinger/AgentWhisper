@@ -54,6 +54,7 @@ class TestHandleRequest:
         assert s["auto_type"] is True
         assert s["notifications"] is True
         assert s["mode"] == "hold"
+        assert s["max_record_seconds"] == 60
         assert isinstance(s["autostart"], bool)
         assert s["hotkey"] == "f12"
         assert s["hotkey_status"] == "inactive"
@@ -79,6 +80,24 @@ class TestHandleRequest:
     def test_set_mode_rejects_garbage(self, daemon):
         response = daemon.handle_request({"cmd": "set-mode", "mode": "press"})
         assert response["ok"] is False
+
+    def test_set_limit(self, daemon, monkeypatch, tmp_path):
+        from agentwhisper import config as config_mod
+
+        monkeypatch.setattr(config_mod, "CONFIG_PATH", tmp_path / "config.toml")
+        monkeypatch.setattr(config_mod.save, "__defaults__",
+                            (tmp_path / "config.toml",))
+        response = daemon.handle_request({"cmd": "set-limit", "seconds": 120})
+        assert response["ok"] is True
+        assert daemon.config.max_record_seconds == 120
+        # And it persisted.
+        assert config_mod.load(tmp_path / "config.toml").max_record_seconds == 120
+
+    @pytest.mark.parametrize("seconds", ["60", 0, -5, True, None, 2.5, 29, 601])
+    def test_set_limit_rejects_garbage(self, daemon, seconds):
+        response = daemon.handle_request({"cmd": "set-limit", "seconds": seconds})
+        assert response["ok"] is False
+        assert daemon.config.max_record_seconds == 60
 
     def test_set_autostart(self, daemon, monkeypatch, tmp_path):
         from agentwhisper import autostart

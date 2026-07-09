@@ -18,6 +18,10 @@ CONFIG_PATH = Path.home() / ".config" / "agentwhisper" / "config.toml"
 MODELS = ["tiny.en", "base.en", "small.en", "medium.en"]
 MODES = ["hold", "toggle"]
 
+# Allowed range for max_record_seconds: below 30 s the cap cuts off
+# normal sentences; above 10 min transcription time and memory balloon.
+LIMIT_MIN, LIMIT_MAX = 30, 600
+
 class ConfigError(Exception):
     """Raised with a message listing every problem found in the config."""
 
@@ -41,8 +45,11 @@ class Config:
             problems.append(f"whisper.device {self.device!r} is not 'cpu' or 'cuda'")
         if self.mode not in MODES:
             problems.append(f"hotkey.mode {self.mode!r} is not one of {', '.join(MODES)}")
-        if not isinstance(self.max_record_seconds, int) or self.max_record_seconds < 1:
-            problems.append("limits.max_record_seconds must be a positive integer")
+        if (not isinstance(self.max_record_seconds, int)
+                or not LIMIT_MIN <= self.max_record_seconds <= LIMIT_MAX):
+            problems.append(
+                f"limits.max_record_seconds must be an integer between "
+                f"{LIMIT_MIN} and {LIMIT_MAX}")
         return problems
 
 
@@ -155,7 +162,7 @@ auto_type = {str(config.auto_type).lower()}
 notifications = {str(config.notifications).lower()}
 
 [limits]
-# Hard cap on a single recording, in seconds (1 or higher), so a stuck
+# Hard cap on a single recording, in seconds (30 to 600), so a stuck
 # key cannot record forever. Recordings under ~0.3s are ignored as
 # accidental taps.
 max_record_seconds = {config.max_record_seconds}

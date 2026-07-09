@@ -116,6 +116,8 @@ won't see the key, so it can't accidentally trigger something else.
 - **Notifications** — the "Typed & copied" confirmations on/off
 - **Start at login** — AgentWhisper starts with your session
 - **Recording Mode** — hold-to-talk vs. press-to-toggle
+- **Recording Limit** — how long one recording may run at most
+  (30 seconds to 10 minutes), so a stuck key can't record forever
 - **Quit AgentWhisper**
 
 **From the terminal** (optional, same controls):
@@ -124,6 +126,7 @@ won't see the key, so it can't accidentally trigger something else.
 agentwhisper status    # is it running? what's it doing?
 agentwhisper toggle    # enable/disable dictation
 agentwhisper mode toggle   # or: hold
+agentwhisper limit 120     # max seconds per recording (30-600)
 agentwhisper autostart on  # start with your session (or: off)
 agentwhisper quit
 ```
@@ -140,10 +143,10 @@ run, with comments). The interesting ones:
 | `model` | `base.en` | Whisper model: `tiny.en` (fastest) … `medium.en` (most accurate) |
 | `auto_type` | `true` | Type the text into the active window (besides copying it) |
 | `notifications` | `true` | Desktop notification after each dictation |
-| `max_record_seconds` | `60` | Safety cap on a single recording |
+| `max_record_seconds` | `60` | Safety cap on a single recording (`30`–`600`) |
 
-Restart AgentWhisper after editing the file. (Mode can also be changed
-live from the tray.)
+Restart AgentWhisper after editing the file. (Mode and the recording
+limit can also be changed live from the tray.)
 
 ## Troubleshooting
 
