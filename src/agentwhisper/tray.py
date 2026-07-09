@@ -12,7 +12,6 @@ the venv with --system-site-packages:
 
 from __future__ import annotations
 
-import threading
 from importlib import resources
 
 from agentwhisper import __version__
@@ -35,6 +34,16 @@ def _limit_label(seconds: int) -> str:
         minutes = seconds // 60
         return f"{minutes} minute" + ("s" if minutes != 1 else "")
     return f"{seconds} seconds"
+
+
+def _argb_to_rgba(pixels: list[int], width: int, height: int) -> bytes:
+    """_NET_WM_ICON pixels are packed 32-bit ARGB; GdkPixbuf wants RGBA."""
+    out = bytearray(width * height * 4)
+    for i, pixel in enumerate(pixels):
+        pixel &= 0xFFFFFFFF
+        out[i * 4:i * 4 + 4] = ((pixel >> 16) & 0xFF, (pixel >> 8) & 0xFF,
+                                pixel & 0xFF, (pixel >> 24) & 0xFF)
+    return bytes(out)
 
 
 class TrayUnavailable(Exception):
@@ -73,8 +82,8 @@ class Tray:
     def __init__(self, app):
         """`app` provides: is_enabled(), set_enabled(bool), get_mode(),
         set_mode(str), get_max_record_seconds(), set_max_record_seconds(int),
-        get_target_title(), choose_target_window(), clear_target_window(),
-        hotkey_name(), quit()."""
+        get_target_title(), list_target_windows(), set_target_window(id, title),
+        clear_target_window(), hotkey_name(), quit()."""
         Gtk, GLib, AppIndicator = _import_gtk()
         self._gtk = Gtk
         self._glib = GLib
@@ -198,10 +207,76 @@ class Tray:
         if self._app.get_target_title() is not None:
             self._app.clear_target_window()
             return
-        # Window selection blocks until the user clicks a window — run it
-        # off the GTK thread; the daemon refreshes our label when done.
-        threading.Thread(target=self._app.choose_target_window,
-                         name="target-select", daemon=True).start()
+        self._show_window_picker()
+
+    def _show_window_picker(self):
+        """A grid of the open windows; clicking one makes it the
+        dictation target. Runs on the GTK thread (menu handler)."""
+        Gtk = self._gtk
+        windows = self._app.list_target_windows()
+        if not windows:
+            return  # the daemon already notified why
+        picker = Gtk.Window(title="AgentWhisper — Choose active window")
+        picker.set_keep_above(True)
+        picker.set_position(Gtk.WindowPosition.CENTER)
+        picker.set_border_width(12)
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_max_children_per_line(4)
+        flow.set_min_children_per_line(min(4, len(windows)))
+        flow.set_row_spacing(8)
+        flow.set_column_spacing(8)
+        for window in windows:
+            button = Gtk.Button()
+            button.set_relief(Gtk.ReliefStyle.NONE)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            box.set_border_width(6)
+            box.pack_start(self._window_icon_image(window["icon"]), False, False, 0)
+            title = window["title"]
+            if len(title) > 28:
+                title = title[:27] + "…"
+            label = Gtk.Label(label=title)
+            label.set_max_width_chars(28)
+            label.set_line_wrap(True)
+            box.pack_start(label, False, False, 0)
+            button.add(box)
+            button.connect("clicked", self._on_window_picked,
+                           window["id"], window["title"], picker)
+            flow.add(button)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_max_content_height(480)
+        scroller.set_propagate_natural_height(True)
+        scroller.add(flow)
+        picker.add(scroller)
+        picker.show_all()
+        picker.present()
+
+    def _on_window_picked(self, button, window_id, title, picker):
+        picker.destroy()
+        self._app.set_target_window(window_id, title)
+
+    def _window_icon_image(self, icon):
+        """A 48px Gtk.Image from a window's _NET_WM_ICON data, or a
+        generic application icon when there is none."""
+        Gtk = self._gtk
+        if icon:
+            try:
+                from gi.repository import GdkPixbuf
+                width, height, pixels = icon
+                pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(
+                    self._glib.Bytes.new(_argb_to_rgba(pixels, width, height)),
+                    GdkPixbuf.Colorspace.RGB, True, 8, width, height, width * 4)
+                if width != 48 or height != 48:
+                    pixbuf = pixbuf.scale_simple(
+                        48, 48, GdkPixbuf.InterpType.BILINEAR)
+                return Gtk.Image.new_from_pixbuf(pixbuf)
+            except Exception:
+                pass  # malformed icon data — fall back to the generic one
+        image = Gtk.Image.new_from_icon_name(
+            "application-x-executable", Gtk.IconSize.DIALOG)
+        image.set_pixel_size(48)
+        return image
 
     def _on_autotype_toggled(self, item):
         if not self._updating_menu:
@@ -228,7 +303,7 @@ class Tray:
     def _refresh_target_label(self) -> bool:
         title = self._app.get_target_title()
         if title is None:
-            self._target_item.set_label("Dictate into one window…")
+            self._target_item.set_label("Choose active window…")
         else:
             if len(title) > 32:
                 title = title[:31] + "…"

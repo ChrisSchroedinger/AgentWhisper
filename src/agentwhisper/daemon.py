@@ -294,11 +294,32 @@ class Daemon:
         target = self._target_window
         return target[1] if target else None
 
+    def list_target_windows(self) -> list[dict]:
+        """The windows the tray's picker offers. A DesktopError becomes
+        an empty list plus a notification, so the tray stays alive."""
+        try:
+            return self.desktop.list_windows()
+        except DesktopError as e:
+            log.error("window list failed: %s", e)
+            self._notify("Cannot list windows", str(e))
+            return []
+
+    def set_target_window(self, window_id: str, title: str) -> None:
+        """Every dictation is typed into this window (in the background,
+        without raising it) and submitted with Enter, until cleared."""
+        with self._lock:
+            self._target_window = (window_id, title)
+        log.info("target window set: %s (%r)", window_id, title)
+        if self._tray is not None:
+            self._tray.refresh_target()
+        self._notify(f"Dictating into: {_shorten(title)}",
+                     "Each dictation is typed there in the background and "
+                     "submitted with Enter. Use the tray item again to stop.")
+
     def choose_target_window(self) -> str | None:
-        """Let the user pick a window by clicking it; every dictation is
-        then typed into that window and submitted with Enter, until the
-        target is cleared. Blocks until the click (~30 s timeout).
-        Returns the window title, or None if nothing was selected."""
+        """CLI flavor of picking a target: click the window (xdotool
+        selectwindow). Blocks until the click (~30 s timeout). Returns
+        the window title, or None if nothing was selected."""
         self._notify("Choose a window",
                      "Click the window that should receive your dictations.")
         try:
@@ -307,14 +328,7 @@ class Daemon:
             log.error("window selection failed: %s", e)
             self._notify("Window selection failed", str(e))
             return None
-        with self._lock:
-            self._target_window = (window_id, title)
-        log.info("target window set: %s (%r)", window_id, title)
-        if self._tray is not None:
-            self._tray.refresh_target()
-        self._notify(f"Dictating into: {_shorten(title)}",
-                     "Each dictation is typed there and submitted with "
-                     "Enter. Use the tray item again to stop.")
+        self.set_target_window(window_id, title)
         return title
 
     def clear_target_window(self) -> None:

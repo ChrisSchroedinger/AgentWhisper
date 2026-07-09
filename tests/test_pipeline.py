@@ -72,6 +72,10 @@ class FakeDesktop:
         self.windows[window_id] = title
         return window_id, title
 
+    def list_windows(self):
+        return [{"id": wid, "title": title, "icon": None}
+                for wid, title in self.windows.items()]
+
     def window_title(self, window_id):
         return self.windows.get(window_id)
 

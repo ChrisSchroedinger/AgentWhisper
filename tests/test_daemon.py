@@ -33,6 +33,10 @@ class _FakeDesktop:
     def select_window(self):
         return ("0xabc", "Terminal")
 
+    def list_windows(self):
+        return [{"id": "0xabc", "title": "Terminal", "icon": None},
+                {"id": "0xdef", "title": "Browser", "icon": None}]
+
     def window_title(self, window_id):
         return "Terminal"
 
@@ -108,6 +112,23 @@ class TestHandleRequest:
         response = daemon.handle_request({"cmd": "set-limit", "seconds": seconds})
         assert response["ok"] is False
         assert daemon.config.max_record_seconds == 60
+
+    def test_set_target_directly(self, daemon):
+        daemon.set_target_window("0xdef", "Browser")
+        assert daemon.handle_request({"cmd": "status"})["target_window"] == "Browser"
+
+    def test_list_target_windows(self, daemon):
+        titles = [w["title"] for w in daemon.list_target_windows()]
+        assert titles == ["Terminal", "Browser"]
+
+    def test_list_target_windows_survives_desktop_error(self, daemon):
+        from agentwhisper.desktop.base import DesktopError
+
+        def broken():
+            raise DesktopError("no DISPLAY")
+
+        daemon.desktop.list_windows = broken
+        assert daemon.list_target_windows() == []
 
     def test_set_and_clear_target(self, daemon):
         response = daemon.handle_request({"cmd": "set-target"})

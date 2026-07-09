@@ -2,6 +2,20 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.3.10 — 2026-07-09
+
+### Changed
+- Picking the dictation target is now visual: tray → *Choose active
+  window…* opens a grid of your open windows (with their icons) —
+  click the one you want instead of aiming a crosshair at it. The
+  crosshair way lives on in `agentwhisper target choose`.
+- Dictating into a chosen window no longer brings it to the front. The
+  text is delivered in the background: the target borrows the keyboard
+  only for the moment of typing, then focus returns to the window you
+  were working in — made for talking to an AI agent in a side window
+  while you keep working. (Avoid typing during that split second; the
+  keys would land in the target window.)
+
 ## 0.3.9 — 2026-07-09
 
 ### Added

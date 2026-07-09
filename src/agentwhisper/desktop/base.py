@@ -38,8 +38,16 @@ class DesktopBackend(Protocol):
         ...
 
     def type_into_window(self, window_id: str, text: str) -> None:
-        """Bring the window to the front, type text into it, then press
-        Enter to submit it. Raises DesktopError."""
+        """Type text into the window and press Enter to submit it,
+        without raising the window — it briefly borrows input focus for
+        the keystrokes and focus returns to the user's window after.
+        Raises DesktopError."""
+        ...
+
+    def list_windows(self) -> list[dict]:
+        """Every normal application window, in stacking order:
+        [{"id": str, "title": str, "icon": (w, h, [argb, ...]) | None}].
+        Raises DesktopError when the list cannot be read."""
         ...
 
     def notify(self, summary: str, body: str = "") -> None:
