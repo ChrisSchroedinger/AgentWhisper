@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AgentWhisper — push-to-talk dictation for Linux</title>
+<title>AgentWhisper — 100% local push-to-talk dictation for Linux</title>
 <meta name="description" content="Hold a key, speak, release — your words are typed into whatever you're writing. Transcribed entirely on your own computer. No cloud, no account.">
 <meta property="og:title" content="AgentWhisper — push-to-talk dictation for Linux">
 <meta property="og:description" content="Hold a key, speak, release — your words are typed into whatever you're writing. 100% on-device, no cloud, no account.">
@@ -163,6 +163,17 @@ code, kbd, pre, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; 
   color: var(--accent);
 }
 .hero-copy { color: var(--ink-dim); max-width: 30em; font-size: 1.1rem; }
+.local-badge {
+  display: inline-flex; align-items: center; gap: 9px;
+  margin: 22px 0 0; padding: 8px 15px;
+  border: 1px solid color-mix(in srgb, var(--live) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--live) 9%, transparent);
+  font-family: "JetBrains Mono", monospace; font-size: 0.8rem; letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.local-badge svg { width: 15px; height: 15px; color: var(--live); flex: none; }
+.local-badge b { color: var(--live); font-weight: 700; }
 .hero-copy strong { color: var(--ink); font-weight: 600; }
 .cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 34px; }
 .btn {
@@ -565,7 +576,11 @@ footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40
     <div>
       <p class="eyebrow">Push-to-talk dictation · Linux · 100% on-device</p>
       <h1>Hold a key.<br>Speak. It's <em>already typed.</em></h1>
-      <p class="hero-copy">AgentWhisper turns your voice into text <strong>on your own computer</strong> — typed straight into whatever you're writing, with a copy in your clipboard. No cloud, no account, no internet after setup.</p>
+      <p class="hero-copy">AgentWhisper turns your voice into text <strong>100% locally, on your own computer</strong> — typed straight into whatever you're writing, with a copy in your clipboard. No cloud, no account, no internet after setup.</p>
+      <p class="local-badge" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 3v6c0 4.7-3.2 8.3-7.5 10-4.3-1.7-7.5-5.3-7.5-10v-6l7.5-3z"/><path d="M8.8 12.2l2.3 2.3 4.1-4.6"/></svg>
+        <b>100% local</b>&nbsp;— your voice never leaves this machine
+      </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/ChrisSchroedinger/AgentWhisper/releases/latest">
           <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 12L3 7h3V1h4v6h3L8 12zm-6 2h12v2H2v-2z"/></svg>
@@ -602,7 +617,7 @@ footer { border-top: 1px solid var(--line); padding: clamp(48px, 8vh, 90px) 0 40
 
 <div class="strip">
   <div class="wrap strip-inner">
-    <span><b class="ok">●</b> works fully offline</span>
+    <span><b class="ok">100%</b> local — runs fully offline</span>
     <span><b>0</b> accounts, API keys or telemetry</span>
     <span><b>~2s</b> from release to typed text</span>
     <span><b>100</b> tests</span>
