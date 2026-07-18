@@ -17,7 +17,7 @@ def test_missing_file_gives_defaults(tmp_path):
 def test_valid_config_loads(tmp_path):
     p = write(tmp_path, """
 [whisper]
-model = "small.en"
+model = "small"
 
 [hotkey]
 mode = "toggle"
@@ -26,17 +26,25 @@ mode = "toggle"
 auto_type = false
 """)
     config = load(p)
-    assert config.model == "small.en"
+    assert config.model == "small"
     assert config.mode == "toggle"
     assert config.auto_type is False
     assert config.notifications is True  # untouched default
 
 
-def test_multilingual_model_is_rejected_in_v1(tmp_path):
-    """v1 is English-only; multilingual models are a future step."""
-    p = write(tmp_path, '[whisper]\nmodel = "large-v3"\n')
-    with pytest.raises(ConfigError, match="large-v3"):
-        load(p)
+@pytest.mark.parametrize("model", ["tiny", "base", "small", "medium",
+                                   "large-v3", "large-v3-turbo"])
+def test_general_models_are_accepted(tmp_path, model):
+    p = write(tmp_path, f'[whisper]\nmodel = "{model}"\n')
+    assert load(p).model == model
+
+
+@pytest.mark.parametrize("old, new", [("tiny.en", "tiny"), ("base.en", "base"),
+                                      ("small.en", "small"), ("medium.en", "medium")])
+def test_legacy_en_models_are_normalized(tmp_path, old, new):
+    """Configs from before 0.4.1 keep working: *.en → the general model."""
+    p = write(tmp_path, f'[whisper]\nmodel = "{old}"\n')
+    assert load(p).model == new
 
 
 @pytest.mark.parametrize("seconds", [29, 601, 0])
@@ -93,7 +101,7 @@ def test_save_roundtrips(tmp_path):
     from agentwhisper.config import save
 
     p = tmp_path / "config.toml"
-    original = Config(model="small.en", mode="toggle", auto_type=False,
+    original = Config(model="small", mode="toggle", auto_type=False,
                       max_record_seconds=90)
     save(original, p)
     assert load(p) == original

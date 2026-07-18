@@ -61,7 +61,7 @@ class TestHandleRequest:
         assert s["ok"] is True
         assert s["phase"] == "idle"
         assert s["enabled"] is True
-        assert s["model"] == "base.en"
+        assert s["model"] == "base"
         assert s["engine"] == "ready"
         assert s["desktop"] == "ok"
         assert s["auto_type"] is True

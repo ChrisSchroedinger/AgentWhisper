@@ -160,7 +160,7 @@ run, with comments). The interesting ones:
 |---------|---------|---------|
 | `key` | `f12` | The push-to-talk key (`f1`…`f12`, `scroll_lock`, `pause`, …) |
 | `mode` | `hold` | `hold` = push-to-talk, `toggle` = press to start/stop |
-| `model` | `base.en` | Whisper model: `tiny.en` (fastest) … `medium.en` (most accurate) |
+| `model` | `base` | Whisper model, `tiny` (fastest) … `large-v3-turbo` (most accurate); every model understands 90+ languages — just speak |
 | `auto_type` | `true` | Type the text into the active window (besides copying it) |
 | `notifications` | `true` | Desktop notification after each dictation |
 | `max_record_seconds` | `60` | Safety cap on a single recording (`30`–`600`) |
@@ -196,17 +196,18 @@ If typing fails the text is still in your clipboard — Ctrl+V.
 |-----------|:------:|
 | 1. Installs, runs once, tray icon + menu | ✅ done |
 | 2. Records: exclusive hotkey, mic capture, voice visualizer | ✅ done |
-| 3. Transcribes: speech → text in your clipboard (English) | ✅ done |
+| 3. Transcribes: speech → text in your clipboard | ✅ done |
 | 4. Types the text into the active window + notifications | ✅ done |
 | 5. Polish: autostart, easy model download, .deb package | ✅ done |
-| 6. AppImage package (single-file, distro-independent) | planned |
-| Later: more languages, Wayland, agent mode | designed for |
+| 6. More languages: standard multilingual models, no setup — just speak | ✅ done |
+| 7. AppImage package (single-file, distro-independent) | planned |
+| Later: Wayland, agent mode | designed for |
 
 ## For developers
 
 ```bash
 ./install.sh       # sets up the venv (needs system Python + GTK bindings)
-uv run pytest      # 59 tests
+uv run pytest      # 117 tests
 uv run ruff check .
 ```
 

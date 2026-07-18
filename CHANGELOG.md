@@ -2,6 +2,18 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.4.1 — 2026-07-19
+
+### Changed
+- AgentWhisper now understands 90+ languages, not just English. The
+  model list switched from the English-only `*.en` variants to the
+  general Whisper models (`tiny`, `base`, `small`, `medium`,
+  `large-v3`, `large-v3-turbo`), and no transcription language is
+  pinned anymore: just speak, whatever the language. Nothing to
+  configure. Existing configs naming a `*.en` model are picked up as
+  the matching general model automatically (expect a one-time
+  download of it on first use). The default model is now `base`.
+
 ## 0.4.0 — 2026-07-09
 
 ### Added

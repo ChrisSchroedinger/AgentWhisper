@@ -13,9 +13,10 @@ from pathlib import Path
 
 CONFIG_PATH = Path.home() / ".config" / "agentwhisper" / "config.toml"
 
-# v1 is English-only, so only the English-optimized models are offered.
-# Multilingual support is a designed-for future step (see DESIGN.md).
-MODELS = ["tiny.en", "base.en", "small.en", "medium.en"]
+# Only the general (multilingual) models are offered — they handle
+# English just as well as 90+ other languages, so there is nothing to
+# configure. Old configs naming a *.en model are normalized on load.
+MODELS = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]
 MODES = ["hold", "toggle"]
 
 # Allowed range for max_record_seconds: below 30 s the cap cuts off
@@ -28,7 +29,7 @@ class ConfigError(Exception):
 
 @dataclass
 class Config:
-    model: str = "base.en"
+    model: str = "base"
     device: str = "cpu"
     compute_type: str = "int8"
     hotkey: str = "f12"
@@ -103,6 +104,12 @@ def load(path: Path = CONFIG_PATH) -> Config:
                 continue
             values[field] = value
 
+    # Configs from before 0.4.1 name English-only models (base.en);
+    # the general model understands English just as well.
+    model = values.get("model")
+    if isinstance(model, str) and model.endswith(".en"):
+        values["model"] = model.removesuffix(".en")
+
     config = Config(**values)  # type: ignore[arg-type]
     problems.extend(config.validate())
     if problems:
@@ -122,12 +129,15 @@ def _render(config: Config) -> str:
 
 [whisper]
 # The speech recognition model. Bigger = more accurate but slower.
-# Downloaded automatically on first use (into ~/.cache/huggingface,
-# shared with other Whisper tools). Possible values:
-#   tiny.en     ~75 MB   fastest, okay for short phrases
-#   base.en    ~140 MB   fast, good accuracy (default)
-#   small.en   ~460 MB   noticeably slower, very good accuracy
-#   medium.en  ~1.5 GB   slow without a GPU, best accuracy
+# All of them understand 90+ languages — just speak, no language
+# setting needed. Downloaded automatically on first use (into
+# ~/.cache/huggingface, shared with other Whisper tools).
+#   tiny            ~75 MB   fastest, okay for short phrases
+#   base           ~140 MB   fast, good accuracy (default)
+#   small          ~460 MB   noticeably slower, very good accuracy
+#   medium         ~1.5 GB   slow without a GPU, better accuracy
+#   large-v3         ~3 GB   best accuracy, wants a GPU
+#   large-v3-turbo ~1.6 GB   near large-v3 accuracy, much faster
 model = "{config.model}"
 
 # Where transcription runs:

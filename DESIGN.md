@@ -66,9 +66,12 @@ where the name points, but v1 ships dictation only.
 
 ## v1 feature list
 
-- **English-only** (decided 2026-07-04): only the `*.en` models are
-  offered; multilingual support is a designed-for later step. Removes
-  the whole model/language-mismatch class of bugs from v1.
+- **English-only** (decided 2026-07-04, superseded in v0.4.1): v1
+  offered only the `*.en` models to remove the model/language-mismatch
+  class of bugs. Since v0.4.1 only the general multilingual models are
+  offered and no language is pinned — Whisper recognizes whatever is
+  spoken, so the mismatch class of bugs stays removed with zero config.
+  Old `*.en` config values are normalized to the general model on load.
 - Hold-to-record and tap-to-toggle modes (configurable hotkey, F12
   default), switchable live from the tray menu and `agentwhisper mode`
 - The hotkey is reserved **exclusively** (XGrabKey): no collisions with
@@ -160,9 +163,9 @@ agentwhisper/
 
 ## Future seams (explicitly designed for, not built)
 
-- **Languages beyond English**: re-add a `language` option plus the
-  multilingual models, with validation that rejects impossible
-  model/language combinations loudly.
+- **Languages beyond English**: ✅ shipped in v0.4.1 — simpler than the
+  planned seam: only the general multilingual models are offered and no
+  `language` option exists; Whisper handles the spoken language itself.
 - **Agent mode**: a new Engine that sends transcripts to an LLM and a
   new client that renders/executes responses. The daemon doesn't change.
 - **Wayland**: `desktop/wayland.py` + an evdev hotkey listener.
@@ -173,6 +176,7 @@ agentwhisper/
 1. **Default model: `base.en`** (small, fast). v1 is English-only, so
    the language/model mismatch trap does not exist by construction;
    the config layer rejects multilingual models until languages land.
+   *(Since v0.4.1 the default is `base` — see the superseded note above.)*
 2. **No autostart during development.** Manual start (menu /
    `systemctl --user start agentwhisper`) while we iterate; autostart
    ships when v1 is trusted.

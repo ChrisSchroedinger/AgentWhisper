@@ -1,7 +1,7 @@
 """Local speech-to-text via faster-whisper. Private, offline, free.
 
 The first load downloads the model from Hugging Face
-(~40MB tiny.en … ~1.5GB medium.en) into ~/.cache/huggingface; after
+(~40MB tiny … ~3GB large-v3) into ~/.cache/huggingface; after
 that everything is offline.
 """
 
@@ -140,7 +140,9 @@ class WhisperLocalEngine:
             raise EngineError(f"expected 16kHz audio, got {sample_rate}Hz")
 
         audio = samples.astype(np.float32) / 32768.0
+        # language is deliberately not passed: the general models figure
+        # out the spoken language themselves, whatever it is.
         segments, _info = self._model.transcribe(
-            audio, language="en", beam_size=5, vad_filter=True
+            audio, beam_size=5, vad_filter=True
         )
         return " ".join(s.text.strip() for s in segments).strip()
