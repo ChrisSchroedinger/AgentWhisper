@@ -84,6 +84,22 @@ class TestBestIcon:
         assert _best_icon([]) is None
         assert _best_icon([0, 0]) is None
 
+    def test_reads_the_x_property_in_place(self):
+        """python-xlib hands the property over as an array of 32-bit
+        ints. Converting the whole thing to Python ints to find one icon
+        costs about ten times the array itself, so only the chosen block
+        is converted — the result must be identical either way."""
+        import array
+
+        blocks = ([16, 16] + [0x11223344] * 256
+                  + [48, 48] + [0xAABBCCDD] * 2304
+                  + [256, 256] + [0x99887766] * 65536)
+        packed = array.array("I", blocks)
+        assert _best_icon(packed) == _best_icon(blocks)
+        width, height, pixels = _best_icon(packed)
+        assert (width, height) == (48, 48)
+        assert set(pixels) == {0xAABBCCDD}
+
 
 class TestArgbToRgba:
     def test_reorders_channels(self):

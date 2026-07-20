@@ -2,6 +2,32 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.4 — 2026-07-20
+
+Part of C7 from the architecture review: the two moments where memory
+spikes rather than accumulates.
+
+### Changed
+- The heap is trimmed after every transcription, not only when the model
+  unloads. A transcription allocates several times the recording — the
+  float32 conversion, plus what faster-whisper and the VAD use — and
+  freeing it hands the pages back to glibc, not to the kernel. Without
+  the trim, RSS stayed at the high-water mark of the longest dictation
+  until the idle unload happened to fire, up to `unload_after_seconds`
+  later.
+- `_best_icon()` reads `_NET_WM_ICON` in place and converts only the
+  block it keeps. The property was materialized as a Python list first:
+  it arrives as an array of 32-bit ints, and an application publishing
+  the usual ladder of sizes up to 256×256 carries ~90,000 pixels.
+  Measured per window: **3.48 MB → 0.10 MB** peak, so opening the window
+  picker with 15 windows allocates about 1.5 MB instead of 52 MB.
+
+### Notes
+- The audio conversion chain (`audio.py`'s chunk list and concatenate,
+  plus the two float32 copies in `transcribe()`) is unchanged. It peaks
+  around 11 MB at the default 60-second limit — real, but not worth the
+  churn until someone runs a much longer limit.
+
 ## 0.5.3 — 2026-07-20
 
 ### Added

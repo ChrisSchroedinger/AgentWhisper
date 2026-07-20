@@ -269,12 +269,22 @@ class WhisperLocalEngine:
         audio = samples.astype(np.float32) / 32768.0
         # language is deliberately not passed: the general models figure
         # out the spoken language themselves, whatever it is.
-        with self._residency:
-            self._ensure_resident()
-            try:
-                segments, _info = self._model.transcribe(
-                    audio, beam_size=5, vad_filter=True
-                )
-                return " ".join(s.text.strip() for s in segments).strip()
-            finally:
-                self._schedule_unload()
+        try:
+            with self._residency:
+                self._ensure_resident()
+                try:
+                    segments, _info = self._model.transcribe(
+                        audio, beam_size=5, vad_filter=True
+                    )
+                    return " ".join(s.text.strip() for s in segments).strip()
+                finally:
+                    self._schedule_unload()
+        finally:
+            # A transcription allocates several times the recording: the
+            # float copy above, plus what faster-whisper and the VAD use.
+            # Freeing it only returns it to glibc's heap, so without the
+            # trim RSS stays at the high-water mark of the longest
+            # dictation until the model happens to unload, minutes later.
+            # `audio` has to go first or its pages are still in use.
+            del audio
+            _return_freed_memory_to_the_os()

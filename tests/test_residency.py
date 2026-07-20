@@ -162,3 +162,30 @@ class TestWarmUpOnRecording:
             threading.Event().wait(0.01)
         assert daemon.engine.warm_ups == 1
         daemon._stop_recording(discard=True)
+
+
+class TestSpikeIsReturned:
+    """A transcription allocates several times the recording. Freeing it
+    only hands it back to glibc, so the trim is what the operating
+    system actually sees."""
+
+    def test_the_heap_is_trimmed_after_every_transcription(self, monkeypatch):
+        trims = []
+        monkeypatch.setattr(
+            "agentwhisper.engines.whisper_local._return_freed_memory_to_the_os",
+            lambda: trims.append(1))
+        engine = make_engine(unload_after_seconds=0)  # no unload to confuse the count
+        engine.transcribe(SAMPLES, 16_000)
+        assert len(trims) == 1
+
+    def test_and_after_one_that_failed(self, monkeypatch):
+        trims = []
+        monkeypatch.setattr(
+            "agentwhisper.engines.whisper_local._return_freed_memory_to_the_os",
+            lambda: trims.append(1))
+        engine = make_engine(unload_after_seconds=0)
+        engine._model.transcribe = lambda audio, **kw: (_ for _ in ()).throw(
+            RuntimeError("boom"))
+        with pytest.raises(RuntimeError):
+            engine.transcribe(SAMPLES, 16_000)
+        assert len(trims) == 1

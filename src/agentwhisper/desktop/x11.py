@@ -7,24 +7,35 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 
 from agentwhisper.desktop.base import DesktopError
 
 
-def _best_icon(data: list[int], target: int = 48) -> tuple[int, int, list[int]] | None:
+def _best_icon(data: Sequence[int], target: int = 48) -> tuple[int, int, list[int]] | None:
     """_NET_WM_ICON is a flat array of one or more (width, height,
-    width*height ARGB pixels) blocks; pick the size closest to target."""
-    icons = []
+    width*height ARGB pixels) blocks; pick the size closest to target.
+
+    Only the two-int header of each block is read; just the chosen block
+    is turned into a Python list. `data` arrives as python-xlib's
+    `array.array` of 32-bit ints — 4 bytes a pixel — and an application
+    publishing every size up to 256x256 carries around 87,000 pixels.
+    Converting all of them to Python ints costs roughly ten times what
+    the array does, for one icon that gets kept.
+    """
+    blocks = []  # (width, height, offset of the first pixel)
+    size = len(data)
     i = 0
-    while i + 2 <= len(data):
+    while i + 2 <= size:
         width, height = data[i], data[i + 1]
-        if width <= 0 or height <= 0 or i + 2 + width * height > len(data):
+        if width <= 0 or height <= 0 or i + 2 + width * height > size:
             break
-        icons.append((width, height, list(data[i + 2:i + 2 + width * height])))
+        blocks.append((width, height, i + 2))
         i += 2 + width * height
-    if not icons:
+    if not blocks:
         return None
-    return min(icons, key=lambda icon: abs(icon[0] - target))
+    width, height, offset = min(blocks, key=lambda block: abs(block[0] - target))
+    return width, height, list(data[offset:offset + width * height])
 
 
 _TOOLS = {
@@ -228,7 +239,10 @@ class X11Desktop:
                     if not title:
                         continue
                     icon_prop = win.get_full_property(icon_atom, X.AnyPropertyType)
-                    icon = (_best_icon(list(icon_prop.value))
+                    # Not list(...): the property is handed over as an
+                    # array of 32-bit ints and _best_icon reads it in
+                    # place, so only the one icon it keeps is converted.
+                    icon = (_best_icon(icon_prop.value)
                             if icon_prop is not None else None)
                     windows.append({"id": str(wid), "title": title, "icon": icon})
                 except Exception:
