@@ -4,17 +4,40 @@ All notable changes to AgentWhisper are documented here.
 
 ## 0.5.0 — 2026-07-20
 
+### Added
+- `whisper.unload_after_seconds` config key: idle period after which the
+  model weights are released, in seconds. Accepts `0` (never unload,
+  the pre-0.5.0 behaviour) or `30`–`3600`. Defaults to `300`.
+- `Engine.warm_up()` in the engine protocol: a blocking call that makes
+  the engine ready to transcribe. A no-op is a valid implementation;
+  `transcribe()` remains correct whether or not it is called.
+- `tests/test_residency.py`: 10 tests covering the unload/reload cycle,
+  the no-op paths, and the lock that prevents a concurrent unload.
+
 ### Changed
-- AgentWhisper now gives the memory back when you are not dictating.
-  The speech model is the only large thing it holds — from about
-  140 MB for `base` up to 3 GB for `large-v3` — and it used to stay
-  loaded from the moment the app started until you quit it. It is now
-  released after five idle minutes, which leaves the app sitting at
-  roughly 150 MB, and loaded again the instant you press the hotkey,
-  while you are still speaking. Dictation is not slower for it.
-- New setting `unload_after_seconds` in the `[whisper]` section: how
-  long to wait before releasing the model (`30`–`3600` seconds, or `0`
-  to keep it loaded permanently). Default `300`.
+- The model weights are now released after `unload_after_seconds` of
+  inactivity and reloaded when recording starts, rather than staying
+  resident for the process lifetime. Idle RSS drops from 285 MB to
+  184 MB with `base`, and from 687 MB to 173 MB with `small`.
+- Residency is internal to `WhisperLocalEngine`. `Engine.status` still
+  reports `ready` while the weights are unloaded, and `transcribe()`
+  reloads them if needed, so no caller observes the change.
+- The daemon calls `Engine.warm_up()` on a background thread from
+  `_start_recording()`, overlapping the reload (~0.3 s for `base`,
+  ~1.0 s for `small`) with the recording. Measured end-to-end cost of a
+  3 s dictation against unloaded weights: within noise of the resident
+  case for both models.
+
+### Notes
+- `ctranslate2.models.Whisper.unload_model()` frees the weights but
+  glibc retains the arenas, so RSS barely moves; `malloc_trim(0)` is
+  issued after the unload to return the pages. Measured with `small`:
+  687 MB resident, 420 MB after the free, 173 MB after the trim. The
+  call is skipped on platforms without glibc.
+- A re-entrant lock is held for the duration of every use of the
+  weights. `ctranslate2` has no lazy-reload path and raises
+  `RuntimeError: No model replica is available in this thread` if the
+  weights are released mid-transcription.
 
 ## 0.4.1 — 2026-07-19
 
