@@ -1,16 +1,14 @@
-"""The Engine contract every speech-to-text backend implements.
+"""What the daemon and its clients need to talk about an engine.
 
-Future engines (cloud STT, an LLM 'agent mode' engine) drop in behind
-this interface without the daemon changing.
+The engine itself is `engines/whisper_local.py`, which documents each
+method where it is implemented. A second engine would be a second
+module using these same types.
 """
 
 from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
-from typing import Protocol
-
-import numpy as np
 
 
 class EngineError(Exception):
@@ -57,45 +55,3 @@ class EngineStatus:
         if self.phase is EnginePhase.FAILED:
             return f"error: {self.error}"
         return self.phase.value
-
-
-class Engine(Protocol):
-    @property
-    def status(self) -> EngineStatus:
-        """What the engine is doing right now."""
-        ...
-
-    @property
-    def load_finished(self) -> bool:
-        """True once load() has returned, in success or failure."""
-        ...
-
-    @property
-    def downloaded(self) -> bool:
-        """True if the last load() had to fetch the model first."""
-        ...
-
-    def is_cached(self) -> bool:
-        """True if the model is available locally, so load() will not
-        need the network."""
-        ...
-
-    def load(self) -> None:
-        """Blocking: acquire the model. Called once, from a background
-        thread, at daemon startup. Errors are reflected in status."""
-        ...
-
-    def warm_up(self) -> None:
-        """Blocking: make the engine ready to transcribe.
-
-        Called from a background thread when recording starts, so an
-        engine that releases resources while idle can reacquire them
-        while the user is still speaking. A no-op is a valid
-        implementation; transcribe() must work either way.
-        """
-        ...
-
-    def transcribe(self, samples: np.ndarray, sample_rate: int) -> str:
-        """Mono int16 samples → text. Blocks; waits for load() if needed.
-        Returns '' when no speech is detected. Raises EngineError."""
-        ...

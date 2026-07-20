@@ -72,16 +72,6 @@ def status_label(status: EngineStatus, *, enabled: bool, mode: str, key: str) ->
     return f"Ready — press {key} to start/stop"
 
 
-def _argb_to_rgba(pixels: list[int], width: int, height: int) -> bytes:
-    """_NET_WM_ICON pixels are packed 32-bit ARGB; GdkPixbuf wants RGBA."""
-    out = bytearray(width * height * 4)
-    for i, pixel in enumerate(pixels):
-        pixel &= 0xFFFFFFFF
-        out[i * 4:i * 4 + 4] = ((pixel >> 16) & 0xFF, (pixel >> 8) & 0xFF,
-                                pixel & 0xFF, (pixel >> 24) & 0xFF)
-    return bytes(out)
-
-
 class TrayUnavailable(Exception):
     """Tray cannot run; the message says why and how to fix it."""
 
@@ -307,15 +297,16 @@ class Tray:
         self._app.set_target_window(window_id, title)
 
     def _window_icon_image(self, icon):
-        """A 48px Gtk.Image from a window's _NET_WM_ICON data, or a
-        generic application icon when there is none."""
+        """A 48px Gtk.Image from a window's icon — (width, height, RGBA
+        bytes) as the desktop backend hands it over — or a generic
+        application icon when there is none."""
         Gtk = self._gtk
         if icon:
             try:
                 from gi.repository import GdkPixbuf
-                width, height, pixels = icon
+                width, height, rgba = icon
                 pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(
-                    self._glib.Bytes.new(_argb_to_rgba(pixels, width, height)),
+                    self._glib.Bytes.new(rgba),
                     GdkPixbuf.Colorspace.RGB, True, 8, width, height, width * 4)
                 if width != 48 or height != 48:
                     pixbuf = pixbuf.scale_simple(
@@ -337,8 +328,8 @@ class Tray:
             self._show(item, self._app.is_notifications())
 
     def _on_autostart_toggled(self, item):
-        if not self._updating_menu:
-            self._app.set_autostart(item.get_active())
+        if not self._updating_menu and not self._app.set_autostart(item.get_active()):
+            self._show(item, self._app.is_autostart())
 
     # -- state display (thread-safe) ----------------------------------------
 

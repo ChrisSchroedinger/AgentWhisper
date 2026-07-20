@@ -423,12 +423,23 @@ class Daemon:
     def is_autostart(self) -> bool:
         return autostart.is_enabled()
 
-    def set_autostart(self, enabled: bool) -> None:
-        if enabled:
-            autostart.enable()
-        else:
-            autostart.disable()
+    def set_autostart(self, enabled: bool) -> bool:
+        """False means the autostart entry could not be written, and the
+        caller should show the state that is real — like every other
+        setter here. Without this the tray's checkbox would stay ticked
+        on an unwritable ~/.config/autostart, because GTK swallows what
+        a menu handler raises."""
+        try:
+            if enabled:
+                autostart.enable()
+            else:
+                autostart.disable()
+        except OSError as e:
+            log.error("start at login not changed: %s", e)
+            self._notify("Start at login not saved", str(e))
+            return False
         log.info("start at login %s", "on" if enabled else "off")
+        return True
 
     def is_auto_type(self) -> bool:
         return self.config.auto_type
@@ -495,7 +506,9 @@ class Daemon:
             enabled = message.get("enabled")
             if not isinstance(enabled, bool):
                 return ipc.error("set-autostart needs enabled: true/false")
-            self.set_autostart(enabled)
+            if not self.set_autostart(enabled):
+                return ipc.error("the autostart entry could not be written "
+                                 "(see daemon log)")
             return ipc.ok(autostart=enabled)
         if cmd == "set-mode":
             mode = message.get("mode")

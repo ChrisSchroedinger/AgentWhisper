@@ -12,16 +12,29 @@ from collections.abc import Sequence
 from agentwhisper.desktop.base import DesktopError
 
 
-def _best_icon(data: Sequence[int], target: int = 48) -> tuple[int, int, list[int]] | None:
+def _argb_to_rgba(data: Sequence[int], offset: int, count: int) -> bytes:
+    """_NET_WM_ICON pixels are packed 32-bit ARGB; image libraries want
+    RGBA. The mask matters: a 64-bit X server hands back longs with junk
+    in the upper bits."""
+    out = bytearray(count * 4)
+    for i in range(count):
+        pixel = data[offset + i] & 0xFFFFFFFF
+        out[i * 4:i * 4 + 4] = ((pixel >> 16) & 0xFF, (pixel >> 8) & 0xFF,
+                                pixel & 0xFF, (pixel >> 24) & 0xFF)
+    return bytes(out)
+
+
+def _best_icon(data: Sequence[int], target: int = 48) -> tuple[int, int, bytes] | None:
     """_NET_WM_ICON is a flat array of one or more (width, height,
-    width*height ARGB pixels) blocks; pick the size closest to target.
+    width*height ARGB pixels) blocks; pick the size closest to target
+    and return it as (width, height, RGBA bytes).
 
     Only the two-int header of each block is read; just the chosen block
-    is turned into a Python list. `data` arrives as python-xlib's
-    `array.array` of 32-bit ints — 4 bytes a pixel — and an application
-    publishing every size up to 256x256 carries around 87,000 pixels.
-    Converting all of them to Python ints costs roughly ten times what
-    the array does, for one icon that gets kept.
+    is converted. `data` arrives as python-xlib's `array.array` of
+    32-bit ints — 4 bytes a pixel — and an application publishing every
+    size up to 256x256 carries around 87,000 pixels. Converting all of
+    them to Python ints costs roughly ten times what the array does, for
+    one icon that gets kept.
     """
     blocks = []  # (width, height, offset of the first pixel)
     size = len(data)
@@ -35,7 +48,7 @@ def _best_icon(data: Sequence[int], target: int = 48) -> tuple[int, int, list[in
     if not blocks:
         return None
     width, height, offset = min(blocks, key=lambda block: abs(block[0] - target))
-    return width, height, list(data[offset:offset + width * height])
+    return width, height, _argb_to_rgba(data, offset, width * height)
 
 
 _TOOLS = {
@@ -193,8 +206,8 @@ class X11Desktop:
 
     def list_windows(self) -> list[dict]:
         """Every normal application window, in the window manager's
-        stacking order: [{"id", "title", "icon"}], icon being an
-        (width, height, [argb, ...]) block from _NET_WM_ICON or None.
+        stacking order: [{"id", "title", "icon"}], icon being a
+        (width, height, RGBA bytes) block from _NET_WM_ICON or None.
         AgentWhisper's own windows are left out."""
         if not os.environ.get("DISPLAY"):
             raise DesktopError("no DISPLAY: the window list needs a graphical X11 session")

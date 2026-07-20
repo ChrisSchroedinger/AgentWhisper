@@ -32,7 +32,7 @@ where the name points, but v1 ships dictation only.
    typing, clipboard, and notifications. X11 implementation first;
    a Wayland one later is a new module, not a rewrite.
 
-## Architecture: daemon + thin clients
+## Architecture: daemon + thin CLI client
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -60,9 +60,9 @@ where the name points, but v1 ships dictation only.
   dependency. Binding the socket doubles as the single-instance lock.
 - **CLI client** (`agentwhisper status|toggle|start|stop|set|logs`) is
   the first client and the debugging story.
-- **Tray** is a *client*, not a core feature. If it can't get an
-  AppIndicator backend it says so on stderr and exits nonzero — the
-  daemon keeps working either way.
+- **Tray** is optional, not a core feature. If it can't get an
+  AppIndicator backend it logs why and the daemon keeps running
+  headless.
 
 ## v1 feature list
 

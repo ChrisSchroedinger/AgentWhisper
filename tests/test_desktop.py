@@ -8,8 +8,7 @@ import subprocess
 import pytest
 
 from agentwhisper.desktop.base import DesktopError
-from agentwhisper.desktop.x11 import X11Desktop, _best_icon
-from agentwhisper.tray import _argb_to_rgba
+from agentwhisper.desktop.x11 import X11Desktop, _argb_to_rgba, _best_icon
 
 
 class RunRecorder:
@@ -70,12 +69,12 @@ class TestTypeIntoWindow:
 class TestBestIcon:
     def test_picks_size_closest_to_48(self):
         data = ([2, 2] + [0] * 4) + ([48, 48] + [0] * 48 * 48) + ([128, 128] + [0] * 128 * 128)
-        width, height, pixels = _best_icon(data)
+        width, height, rgba = _best_icon(data)
         assert (width, height) == (48, 48)
-        assert len(pixels) == 48 * 48
+        assert len(rgba) == 48 * 48 * 4  # RGBA, ready for GdkPixbuf
 
     def test_single_icon(self):
-        assert _best_icon([1, 1, 42]) == (1, 1, [42])
+        assert _best_icon([1, 1, 0xAA112233]) == (1, 1, bytes([0x11, 0x22, 0x33, 0xAA]))
 
     def test_truncated_data_is_rejected(self):
         assert _best_icon([64, 64, 1, 2, 3]) is None
@@ -96,16 +95,20 @@ class TestBestIcon:
                   + [256, 256] + [0x99887766] * 65536)
         packed = array.array("I", blocks)
         assert _best_icon(packed) == _best_icon(blocks)
-        width, height, pixels = _best_icon(packed)
+        width, height, rgba = _best_icon(packed)
         assert (width, height) == (48, 48)
-        assert set(pixels) == {0xAABBCCDD}
+        assert set(rgba) == {0xBB, 0xCC, 0xDD, 0xAA}  # every pixel is that one color
 
 
 class TestArgbToRgba:
     def test_reorders_channels(self):
         # ARGB 0xAA112233 → RGBA (0x11, 0x22, 0x33, 0xAA)
-        assert _argb_to_rgba([0xAA112233], 1, 1) == bytes([0x11, 0x22, 0x33, 0xAA])
+        assert _argb_to_rgba([0xAA112233], 0, 1) == bytes([0x11, 0x22, 0x33, 0xAA])
 
     def test_masks_oversized_values(self):
         # X servers on 64-bit may hand back longs with junk upper bits.
-        assert _argb_to_rgba([0xFF00AA112233], 1, 1) == bytes([0x11, 0x22, 0x33, 0xAA])
+        assert _argb_to_rgba([0xFF00AA112233], 0, 1) == bytes([0x11, 0x22, 0x33, 0xAA])
+
+    def test_converts_only_the_requested_block(self):
+        # The offset is why the whole property never becomes Python ints.
+        assert _argb_to_rgba([0, 0, 0xAA112233], 2, 1) == bytes([0x11, 0x22, 0x33, 0xAA])

@@ -2,6 +2,35 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.5 — 2026-07-20
+
+C8 from the architecture review, decided as deletion: AgentWhisper has
+one desktop backend and one engine, so a second description of each was
+documentation that nothing checked and nothing stopped from drifting.
+
+### Removed
+- The `DesktopBackend` and `Engine` Protocols. Neither was imported by
+  any module or test — the `Engine` one had already drifted to declaring
+  half of what the daemon calls before 0.5.2 corrected it. The module
+  boundary is the seam; each method documents itself where it is
+  implemented. `DesktopError`, `EngineError`, `EnginePhase` and
+  `EngineStatus` are untouched and still live in the same modules.
+
+### Changed
+- `_NET_WM_ICON` conversion moved out of the tray: `desktop/x11.py` now
+  returns window icons as `(width, height, RGBA bytes)` instead of raw
+  ARGB integers the GTK layer had to unpack. The display server's pixel
+  format stops leaking into the UI, and the chosen icon block is
+  converted straight to bytes without an intermediate list of ints.
+
+### Fixed
+- Switching "Start at login" on with an unwritable
+  `~/.config/autostart` looked like it worked. `set_autostart()` let the
+  `OSError` escape into the GTK menu handler, which swallows it, so the
+  checkbox stayed ticked with nothing written. It now reports failure
+  like every other setting: the tray puts the checkbox back, and
+  `agentwhisper autostart on` prints the error instead of success.
+
 ## 0.5.4 — 2026-07-20
 
 Part of C7 from the architecture review: the two moments where memory
