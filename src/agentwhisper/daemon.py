@@ -30,6 +30,7 @@ from agentwhisper.desktop.base import DesktopError
 from agentwhisper.desktop.x11 import X11Desktop
 from agentwhisper.engines.base import EngineError, EnginePhase, EngineStatus
 from agentwhisper.engines.whisper_local import WhisperLocalEngine
+from agentwhisper.settings import Settings
 from agentwhisper.state import RELEASE_DEBOUNCE_SECONDS, Action, DictationStateMachine
 
 log = logging.getLogger("agentwhisper")
@@ -48,9 +49,11 @@ def _shorten(title: str, limit: int = 40) -> str:
 class Daemon:
     """Wires hotkey events through the state machine to real effects."""
 
-    def __init__(self, cfg: config_mod.Config, *, recorder=None, engine=None,
+    def __init__(self, settings: Settings, *, recorder=None, engine=None,
                  desktop=None):
-        self.config = cfg
+        self.settings = settings
+        self.settings.subscribe(self._settings_changed)
+        cfg = settings.values
         self.sm = DictationStateMachine(mode=cfg.mode)
         self.recorder = recorder if recorder is not None else Recorder()
         self.engine = engine if engine is not None else WhisperLocalEngine(
@@ -69,6 +72,23 @@ class Daemon:
         self._target_window: tuple[str, str] | None = None  # (id, title)
         self._settle_timer: threading.Timer | None = None
         self._max_timer: threading.Timer | None = None
+
+    @property
+    def config(self) -> config_mod.Config:
+        """The current settings. Read-only — changes go through the
+        setters below, which route them to the settings module."""
+        return self.settings.values
+
+    def _settings_changed(self, values: config_mod.Config) -> None:
+        """Refresh what the daemon derives from the settings.
+
+        The state machine needs the mode to interpret key events, so it
+        keeps its own copy. Pushing it from here means no caller has to
+        remember to update both, and the copy only moves once the new
+        value is actually on disk.
+        """
+        with self._lock:
+            self._dispatch(self.sm.set_mode(values.mode))
 
     def start_engine(self) -> None:
         """Load the model in the background; the daemon stays responsive."""
@@ -289,6 +309,29 @@ class Daemon:
             timer.cancel()
             setattr(self, name, None)
 
+    # -- settings ----------------------------------------------------------
+
+    def apply_settings(self, description: str, **updates) -> None:
+        """Change settings, or raise ConfigError having changed nothing."""
+        self.settings.change(**updates)
+        log.info("%s", description)
+
+    def _change(self, description: str, **updates) -> bool:
+        """`apply_settings` for callers with nowhere to put an exception.
+
+        The tray's menu handlers run inside GTK, which swallows what
+        they raise — a rejected value or an unwritable file would look
+        exactly like success. False here means the setting did not
+        change, and the caller puts its widget back.
+        """
+        try:
+            self.apply_settings(description, **updates)
+        except config_mod.ConfigError as e:
+            log.error("setting not changed: %s", e)
+            self._notify("Setting not saved", str(e))
+            return False
+        return True
+
     # -- interface used by the tray ---------------------------------------
 
     def is_enabled(self) -> bool:
@@ -302,12 +345,10 @@ class Daemon:
     def get_mode(self) -> str:
         return self.sm.mode
 
-    def set_mode(self, mode: str) -> None:
-        with self._lock:
-            self._dispatch(self.sm.set_mode(mode))
-            self.config.mode = mode
-        config_mod.save(self.config)
-        log.info("mode set to %s", mode)
+    def set_mode(self, mode: str) -> bool:
+        """The state machine follows via _settings_changed, so an
+        unwritable config leaves the mode alone rather than half-applied."""
+        return self._change(f"mode set to {mode}", mode=mode)
 
     def hotkey_name(self) -> str:
         return self.config.hotkey
@@ -363,10 +404,9 @@ class Daemon:
         if self._tray is not None:
             self._tray.refresh_target()
 
-    def set_max_record_seconds(self, seconds: int) -> None:
-        self.config.max_record_seconds = seconds
-        config_mod.save(self.config)
-        log.info("recording limit set to %ds", seconds)
+    def set_max_record_seconds(self, seconds: int) -> bool:
+        return self._change(f"recording limit set to {seconds}s",
+                            max_record_seconds=seconds)
 
     def engine_status(self) -> EngineStatus:
         return self.engine.status
@@ -384,18 +424,16 @@ class Daemon:
     def is_auto_type(self) -> bool:
         return self.config.auto_type
 
-    def set_auto_type(self, enabled: bool) -> None:
-        self.config.auto_type = enabled
-        config_mod.save(self.config)
-        log.info("auto-type %s", "on" if enabled else "off")
+    def set_auto_type(self, enabled: bool) -> bool:
+        return self._change(f"auto-type {'on' if enabled else 'off'}",
+                            auto_type=enabled)
 
     def is_notifications(self) -> bool:
         return self.config.notifications
 
-    def set_notifications(self, enabled: bool) -> None:
-        self.config.notifications = enabled
-        config_mod.save(self.config)
-        log.info("notifications %s", "on" if enabled else "off")
+    def set_notifications(self, enabled: bool) -> bool:
+        return self._change(f"notifications {'on' if enabled else 'off'}",
+                            notifications=enabled)
 
     def quit(self) -> None:
         log.info("shutdown requested")
@@ -406,6 +444,15 @@ class Daemon:
             self._tray.stop()
 
     # -- IPC ----------------------------------------------------------------
+
+    def _ipc_change(self, description: str, **updates) -> dict:
+        """A settings change requested over the socket. The client gets
+        the same explanation the config file would have given it."""
+        try:
+            self.apply_settings(description, **updates)
+        except config_mod.ConfigError as e:
+            return ipc.error(str(e))
+        return ipc.ok(**updates)
 
     def handle_request(self, message: dict) -> dict:
         cmd = message.get("cmd")
@@ -443,19 +490,11 @@ class Daemon:
             return ipc.ok(autostart=enabled)
         if cmd == "set-mode":
             mode = message.get("mode")
-            if mode not in ("hold", "toggle"):
-                return ipc.error(f"mode must be 'hold' or 'toggle', not {mode!r}")
-            self.set_mode(mode)
-            return ipc.ok(mode=mode)
+            return self._ipc_change(f"mode set to {mode}", mode=mode)
         if cmd == "set-limit":
             seconds = message.get("seconds")
-            if (isinstance(seconds, bool) or not isinstance(seconds, int)
-                    or not config_mod.LIMIT_MIN <= seconds <= config_mod.LIMIT_MAX):
-                return ipc.error(
-                    f"set-limit needs seconds: an integer between "
-                    f"{config_mod.LIMIT_MIN} and {config_mod.LIMIT_MAX}")
-            self.set_max_record_seconds(seconds)
-            return ipc.ok(max_record_seconds=seconds)
+            return self._ipc_change(f"recording limit set to {seconds}s",
+                                    max_record_seconds=seconds)
         if cmd == "set-target":
             title = self.choose_target_window()
             if title is None:
@@ -546,7 +585,7 @@ def main() -> int:
         return 2
     log.info("config OK: model=%s mode=%s hotkey=%s", cfg.model, cfg.mode, cfg.hotkey)
 
-    daemon = Daemon(cfg)
+    daemon = Daemon(Settings(cfg))
     for problem in daemon.desktop_problems:
         log.warning("desktop check: %s", problem)
     daemon.start_engine()

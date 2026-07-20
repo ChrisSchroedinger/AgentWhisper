@@ -4,10 +4,13 @@ All notable changes to AgentWhisper are documented here.
 
 ## 0.5.2 — 2026-07-20
 
-No user-visible change. Internal refactor of how engine state is
-represented, and the tests it makes possible.
-
 ### Added
+- `settings.py`: `Settings` owns every change to a persisted value.
+  `change(**updates)` validates the whole config with the change
+  applied, writes the file atomically, then notifies subscribers, and
+  refuses at the first step that fails without changing anything.
+- `tests/test_settings.py`: 14 tests covering the all-or-nothing
+  guarantee, the atomic write, and the subscribers.
 - `EnginePhase` and `EngineStatus(phase, percent, error)` in
   `engines/base.py`. `EngineStatus` is a frozen dataclass exposing
   `busy` and `describe()`.
@@ -16,7 +19,32 @@ represented, and the tests it makes possible.
 - `tests/test_engine_status.py`: 17 tests covering the status value, the
   tray label, and the engine load path.
 
+### Fixed
+- A settings change that could not be saved is now reported. The tray's
+  handlers run inside GTK, which swallows exceptions, so a failed
+  `config.save()` left the menu showing a setting that was never
+  written. The daemon's setters return `False`, notify, and the tray
+  restores the item to its real value.
+- A partly written `config.toml` is no longer possible. The file was
+  replaced with `write_text`; it is now written to a temporary file in
+  the same directory, `fsync`'d and `os.replace`'d, so an interrupted
+  save leaves the previous config rather than a file that fails to load
+  on the next start.
+- `mode` was stored twice — in the config and in the state machine —
+  and `set_mode()` assigned both by hand, moving the state machine even
+  when the save then failed. The state machine's copy is now refreshed
+  from a settings subscriber, after the write.
+
 ### Changed
+- `Config.validate()` checks types as well as ranges and names each
+  field the way the file spells it (`limits.max_record_seconds`). Values
+  from the tray and the CLI never reach the TOML parser, so its type
+  checks did not apply to them; the IPC handler carried a second copy of
+  the recording-limit range, which is now gone.
+- `Daemon` takes a `Settings` rather than a `Config`, and `daemon.config`
+  is a read-only property over it.
+- `config.save()` is removed; `config._render()` is now `config.render()`.
+  `config.py` defines what a valid config is, `settings.py` changes one.
 - `Engine.status` returns an `EngineStatus` instead of a string such as
   `"downloading 42%"`. The daemon and the tray previously recovered the
   phase and the percentage from that string with `startswith()`,
@@ -29,6 +57,11 @@ represented, and the tests it makes possible.
 - The IPC `status` response still carries `engine` as a display string,
   produced by `EngineStatus.describe()`. Nothing parses it; the CLI
   prints it verbatim.
+
+### Notes
+- The Enabled toggle is deliberately still session-only: unlike the
+  other tray settings it is not persisted, so AgentWhisper always starts
+  ready to dictate rather than silently deaf after a reboot.
 
 ## 0.5.1 — 2026-07-20
 

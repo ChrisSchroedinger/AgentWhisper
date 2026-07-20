@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import pytest
+from tests.helpers import make_settings
 
 from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon
@@ -98,7 +99,7 @@ class FakeDesktop:
 def make_daemon(mode="hold", duration=1.0, text="hello world", error=None,
                 type_error=None, **config_kwargs):
     daemon = Daemon(
-        Config(mode=mode, **config_kwargs),
+        make_settings(Config(mode=mode, **config_kwargs)),
         recorder=FakeRecorder(duration),
         engine=FakeEngine(text, error),
         desktop=FakeDesktop(type_error),

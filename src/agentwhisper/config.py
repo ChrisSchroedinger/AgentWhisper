@@ -1,7 +1,11 @@
-"""Configuration: TOML file at ~/.config/agentwhisper/config.toml.
+"""Configuration: the values, their rules, and the file they live in.
 
 Loading is strict: unknown keys and invalid values are collected and
 reported together, so a typo'd config never half-applies silently.
+
+This module knows what a valid config *is*. Changing one at runtime is
+`settings.Settings`, which owns the write and everything that has to
+happen around it.
 """
 
 from __future__ import annotations
@@ -27,6 +31,10 @@ LIMIT_MIN, LIMIT_MAX = 30, 600
 # normal pause between two dictations would keep reloading the model.
 UNLOAD_MIN, UNLOAD_MAX = 30, 3600
 
+# How a field's annotated type reads in an error message.
+_TYPE_NAMES = {"bool": "true or false", "int": "an integer", "str": "a string"}
+
+
 class ConfigError(Exception):
     """Raised with a message listing every problem found in the config."""
 
@@ -44,24 +52,53 @@ class Config:
     max_record_seconds: int = 60
 
     def validate(self) -> list[str]:
-        problems = []
+        """Everything wrong with these values, in file-order, or [].
+
+        This is the *only* gate: values reaching it from the tray or the
+        CLI have never been near the TOML parser, so it has to check
+        types as well as ranges.
+        """
+        problems = self._type_problems()
+        if problems:
+            return problems  # range checks on a string would just crash
+
         if self.model not in MODELS:
             problems.append(f"whisper.model {self.model!r} is not one of {', '.join(MODELS)}")
         if self.device not in ("cpu", "cuda"):
             problems.append(f"whisper.device {self.device!r} is not 'cpu' or 'cuda'")
         if self.mode not in MODES:
             problems.append(f"hotkey.mode {self.mode!r} is not one of {', '.join(MODES)}")
-        if (not isinstance(self.unload_after_seconds, int)
-                or not (self.unload_after_seconds == 0
-                        or UNLOAD_MIN <= self.unload_after_seconds <= UNLOAD_MAX)):
+        if not (self.unload_after_seconds == 0
+                or UNLOAD_MIN <= self.unload_after_seconds <= UNLOAD_MAX):
             problems.append(
                 f"whisper.unload_after_seconds must be 0 or an integer between "
                 f"{UNLOAD_MIN} and {UNLOAD_MAX}")
-        if (not isinstance(self.max_record_seconds, int)
-                or not LIMIT_MIN <= self.max_record_seconds <= LIMIT_MAX):
+        if not LIMIT_MIN <= self.max_record_seconds <= LIMIT_MAX:
             problems.append(
                 f"limits.max_record_seconds must be an integer between "
                 f"{LIMIT_MIN} and {LIMIT_MAX}")
+        return problems
+
+    def _type_problems(self) -> list[str]:
+        """Fields holding something other than what they promise.
+
+        `bool` is excluded from `int` explicitly — in Python it would
+        pass isinstance, and `max_record_seconds = True` is not a
+        30-second cap.
+        """
+        problems = []
+        for field in dataclasses.fields(self):
+            value = getattr(self, field.name)
+            annotation = str(field.type)
+            if annotation == "bool":
+                valid = isinstance(value, bool)
+            elif annotation == "int":
+                valid = isinstance(value, int) and not isinstance(value, bool)
+            else:
+                valid = isinstance(value, str)
+            if not valid:
+                problems.append(f"{_qualified(field.name)} must be "
+                                f"{_TYPE_NAMES[annotation]}")
         return problems
 
 
@@ -73,6 +110,15 @@ _SCHEMA: dict[str, dict[str, str]] = {
     "output": {"auto_type": "auto_type", "notifications": "notifications"},
     "limits": {"max_record_seconds": "max_record_seconds"},
 }
+
+
+def _qualified(field: str) -> str:
+    """A field name as the user sees it in the file: `limits.max_record_seconds`."""
+    for section, entries in _SCHEMA.items():
+        for key, name in entries.items():
+            if name == field:
+                return f"{section}.{key}"
+    return field
 
 
 def load(path: Path = CONFIG_PATH) -> Config:
@@ -129,7 +175,7 @@ def load(path: Path = CONFIG_PATH) -> Config:
     return config
 
 
-def _render(config: Config) -> str:
+def render(config: Config) -> str:
     """The config file text: every setting fully explained, with the
     given config's values filled in. Used for both the initial default
     file and every save, so the explanations never get lost."""
@@ -199,7 +245,7 @@ max_record_seconds = {config.max_record_seconds}
 """
 
 
-DEFAULT_CONFIG_TOML = _render(Config())
+DEFAULT_CONFIG_TOML = render(Config())
 
 
 def write_default(path: Path = CONFIG_PATH) -> None:
@@ -207,17 +253,3 @@ def write_default(path: Path = CONFIG_PATH) -> None:
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(DEFAULT_CONFIG_TOML)
-
-
-def save(config: Config, path: Path = CONFIG_PATH) -> None:
-    """Persist the config (used when settings change via the tray menu).
-
-    Rewrites the file from the standard commented template with the
-    current values — explanations survive every save; hand-written
-    custom comments do not.
-    """
-    problems = config.validate()
-    if problems:
-        raise ConfigError("refusing to save invalid config:\n  - " + "\n  - ".join(problems))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_render(config))

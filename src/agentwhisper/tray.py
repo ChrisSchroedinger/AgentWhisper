@@ -102,8 +102,14 @@ class Tray:
     def __init__(self, app):
         """`app` provides: is_enabled(), set_enabled(bool), get_mode(),
         set_mode(str), get_max_record_seconds(), set_max_record_seconds(int),
-        get_target_title(), list_target_windows(), set_target_window(id, title),
-        clear_target_window(), hotkey_name(), quit()."""
+        is_auto_type(), set_auto_type(bool), is_notifications(),
+        set_notifications(bool), get_target_title(), list_target_windows(),
+        set_target_window(id, title), clear_target_window(), hotkey_name(),
+        engine_status(), quit().
+
+        The persisted setters return False when the setting did not
+        change (invalid value, or the config file could not be
+        written); the handler then puts the menu item back."""
         Gtk, GLib, AppIndicator = _import_gtk()
         self._gtk = Gtk
         self._glib = GLib
@@ -166,9 +172,7 @@ class Tray:
             item.connect("toggled", self._on_mode_toggled, mode)
             self._mode_items[mode] = item
             mode_menu.append(item)
-        self._updating_menu = True
-        self._mode_items[self._app.get_mode()].set_active(True)
-        self._updating_menu = False
+        self._show(self._mode_items[self._app.get_mode()], True)
         mode_item.set_submenu(mode_menu)
         menu.append(mode_item)
 
@@ -187,9 +191,7 @@ class Tray:
             item.connect("toggled", self._on_limit_toggled, seconds)
             self._limit_items[seconds] = item
             limit_menu.append(item)
-        self._updating_menu = True
-        self._limit_items[current].set_active(True)
-        self._updating_menu = False
+        self._show(self._limit_items[current], True)
         limit_item.set_submenu(limit_menu)
         menu.append(limit_item)
 
@@ -209,19 +211,30 @@ class Tray:
 
     # -- menu signal handlers ---------------------------------------------
 
+    def _show(self, item, active: bool) -> None:
+        """Set a menu item's state without it looking like a user click."""
+        self._updating_menu = True
+        item.set_active(active)
+        self._updating_menu = False
+
     def _on_enabled_toggled(self, item):
         if not self._updating_menu:
             self._app.set_enabled(item.get_active())
             self._refresh_status_label()
 
     def _on_mode_toggled(self, item, mode):
-        if not self._updating_menu and item.get_active():
-            self._app.set_mode(mode)
-            self._refresh_status_label()
+        if self._updating_menu or not item.get_active():
+            return
+        if not self._app.set_mode(mode):
+            # Rejected or unsaveable: show the mode that is real.
+            self._show(self._mode_items[self._app.get_mode()], True)
+        self._refresh_status_label()
 
     def _on_limit_toggled(self, item, seconds):
-        if not self._updating_menu and item.get_active():
-            self._app.set_max_record_seconds(seconds)
+        if self._updating_menu or not item.get_active():
+            return
+        if not self._app.set_max_record_seconds(seconds):
+            self._show(self._limit_items[self._app.get_max_record_seconds()], True)
 
     def _on_target_clicked(self, item):
         if self._app.get_target_title() is not None:
@@ -299,12 +312,12 @@ class Tray:
         return image
 
     def _on_autotype_toggled(self, item):
-        if not self._updating_menu:
-            self._app.set_auto_type(item.get_active())
+        if not self._updating_menu and not self._app.set_auto_type(item.get_active()):
+            self._show(item, self._app.is_auto_type())
 
     def _on_notify_toggled(self, item):
-        if not self._updating_menu:
-            self._app.set_notifications(item.get_active())
+        if not self._updating_menu and not self._app.set_notifications(item.get_active()):
+            self._show(item, self._app.is_notifications())
 
     def _on_autostart_toggled(self, item):
         if not self._updating_menu:

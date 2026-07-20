@@ -8,9 +8,9 @@ nothing checked that what they parsed was what the engine emitted.
 import dataclasses
 
 import pytest
+from tests.helpers import make_settings
 from tests.test_daemon import _FakeDesktop
 
-from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon
 from agentwhisper.engines.base import EnginePhase, EngineStatus
 from agentwhisper.tray import status_label
@@ -118,7 +118,7 @@ class LoadingEngine:
 
 
 def make_daemon(engine):
-    daemon = Daemon(Config(), engine=engine, desktop=_FakeDesktop())
+    daemon = Daemon(make_settings(), engine=engine, desktop=_FakeDesktop())
     daemon.desktop.notifications = []
     daemon.desktop.notify = lambda summary, body="": \
         daemon.desktop.notifications.append((summary, body))

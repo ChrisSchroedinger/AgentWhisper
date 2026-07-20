@@ -97,21 +97,18 @@ def test_invalid_toml_is_rejected(tmp_path):
         load(p)
 
 
-def test_save_roundtrips(tmp_path):
-    from agentwhisper.config import save
-
-    p = tmp_path / "config.toml"
-    original = Config(model="small", mode="toggle", auto_type=False,
-                      max_record_seconds=90)
-    save(original, p)
-    assert load(p) == original
-
-
-def test_save_refuses_invalid(tmp_path):
-    from agentwhisper.config import save
-
-    with pytest.raises(ConfigError):
-        save(Config(mode="press"), tmp_path / "config.toml")
+@pytest.mark.parametrize("values, expected", [
+    (Config(max_record_seconds="60"), "limits.max_record_seconds must be an integer"),
+    (Config(max_record_seconds=True), "limits.max_record_seconds must be an integer"),
+    (Config(auto_type="yes"), "output.auto_type must be true or false"),
+    (Config(model=3), "whisper.model must be a string"),
+])
+def test_validate_names_the_field_as_the_file_spells_it(values, expected):
+    """Values from the tray and the CLI never meet the TOML parser, so
+    validate() is the only thing standing between them and the file —
+    including their types. A bool is not an integer here, whatever
+    isinstance says."""
+    assert expected in values.validate()
 
 
 def test_write_default_roundtrips(tmp_path):

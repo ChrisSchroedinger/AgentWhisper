@@ -101,6 +101,7 @@ where the name points, but v1 ships dictation only.
 | Hotkey | `python-xlib` XGrabKey | Exclusive system-wide grab: the key never reaches other apps while the daemon runs. BadAccess (someone else grabbed it) is a clear error. evdev is the future Wayland path |
 | Typing/clipboard | xdotool/xclip subprocess **inside** the X11 backend | Proven; verified at startup; isolated so it's swappable |
 | Config | TOML at `~/.config/agentwhisper/config.toml`, stdlib `tomllib`, dataclass-validated | No pydantic dependency for v1 |
+| Settings changes | One `Settings.change()`: validate, write atomically, notify — all-or-nothing | See below. Callers used to assign a field, save, and remember to update whatever else held a copy |
 | Model residency | The engine owns it: weights are dropped after `unload_after_seconds` idle and reloaded when recording starts | See below — the daemon never asks whether the model is in memory |
 | Engine state | `EngineStatus(phase, percent, error)`, a frozen dataclass — not a free-text string | Callers compare phases; the wording is written where it is displayed. The string version was parsed back apart by three modules |
 | Logging | `logging` → file + stderr (journald picks it up) | `agentwhisper logs` tails it |
@@ -119,7 +120,8 @@ agentwhisper/
 ├── install.sh
 ├── src/agentwhisper/
 │   ├── __init__.py           # version
-│   ├── config.py             # load/validate/save TOML
+│   ├── config.py             # the values, their rules, the TOML file
+│   ├── settings.py           # the one place a setting changes
 │   ├── state.py              # recording state machine (pure logic)
 │   ├── audio.py              # sounddevice capture → wav buffer
 │   ├── hotkey.py             # key listener → events (debounce lives here)
@@ -188,6 +190,35 @@ are in memory, and `status` keeps reporting `ready` while they are not.
   the idle timer can never unload them mid-transcription — ctranslate2
   raises `No model replica is available in this thread` if it does, and
   there is no lazy-reload path to catch it.
+
+## Changing a setting (v0.5.2)
+
+`config.py` says what a valid config *is*; `settings.py` owns changing
+one. Every change — tray menu, CLI, IPC — goes through
+`Settings.change(**updates)`, which does three things in order and stops
+at the first that refuses:
+
+1. **Validate the whole config with the change applied.** `Config.validate()`
+   is the single gate, so the range checks the file is held to are the
+   ones the tray and the CLI are held to. It checks types as well as
+   ranges: values arriving from a socket never met the TOML parser.
+2. **Write atomically** — temporary file in the same directory, `fsync`,
+   `os.replace`. A full disk or a crash leaves the previous config
+   intact instead of a truncated file that refuses to load next start.
+3. **Notify subscribers.** State that mirrors a setting is refreshed
+   from here rather than by the caller. The state machine's `mode` is
+   the only such copy today, and it now moves only once the new value is
+   actually on disk.
+
+Because nothing changes unless all three succeed, a failure is reportable:
+the daemon's setters return `False`, notify the user, and the tray puts
+the menu item back where it was. Previously a failed save raised inside
+a GTK callback, which swallows it — the checkbox showed a setting that
+was never stored.
+
+Deliberately **not** persisted: the Enabled toggle. Disabling dictation
+is a "not right now" action; starting up silently deaf after a reboot
+would be a worse bug than the inconsistency.
 
 ## Future seams (explicitly designed for, not built)
 

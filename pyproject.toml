@@ -41,6 +41,9 @@ packages = ["src/agentwhisper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# So test modules can share helpers via `from tests.helpers import ...`
+# regardless of how pytest was invoked.
+pythonpath = ["."]
 addopts = "-q"
 markers = [
     "slow: spawns an interpreter or loads a real model (deselect with '-m \"not slow\"')",

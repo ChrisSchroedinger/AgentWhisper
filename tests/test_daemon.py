@@ -9,6 +9,7 @@ from agentwhisper import ipc
 from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon, _Server
 from agentwhisper.engines.base import EnginePhase, EngineStatus
+from agentwhisper.settings import Settings
 
 
 class _FakeEngine:
@@ -57,8 +58,9 @@ class _FakeDesktop:
 
 
 @pytest.fixture
-def daemon():
-    return Daemon(Config(), engine=_FakeEngine(), desktop=_FakeDesktop())
+def daemon(tmp_path):
+    settings = Settings(Config(), tmp_path / "config.toml")
+    return Daemon(settings, engine=_FakeEngine(), desktop=_FakeDesktop())
 
 
 class TestHandleRequest:
@@ -88,12 +90,9 @@ class TestHandleRequest:
         assert daemon.handle_request({"cmd": "toggle-enabled"})["enabled"] is False
         assert daemon.handle_request({"cmd": "toggle-enabled"})["enabled"] is True
 
-    def test_set_mode(self, daemon, monkeypatch, tmp_path):
+    def test_set_mode(self, daemon, tmp_path):
         from agentwhisper import config as config_mod
 
-        monkeypatch.setattr(config_mod, "CONFIG_PATH", tmp_path / "config.toml")
-        monkeypatch.setattr(config_mod.save, "__defaults__",
-                            (tmp_path / "config.toml",))
         response = daemon.handle_request({"cmd": "set-mode", "mode": "toggle"})
         assert response["ok"] is True
         assert daemon.sm.mode == "toggle"
@@ -103,13 +102,11 @@ class TestHandleRequest:
     def test_set_mode_rejects_garbage(self, daemon):
         response = daemon.handle_request({"cmd": "set-mode", "mode": "press"})
         assert response["ok"] is False
+        assert daemon.sm.mode == "hold"  # and the state machine did not move
 
-    def test_set_limit(self, daemon, monkeypatch, tmp_path):
+    def test_set_limit(self, daemon, tmp_path):
         from agentwhisper import config as config_mod
 
-        monkeypatch.setattr(config_mod, "CONFIG_PATH", tmp_path / "config.toml")
-        monkeypatch.setattr(config_mod.save, "__defaults__",
-                            (tmp_path / "config.toml",))
         response = daemon.handle_request({"cmd": "set-limit", "seconds": 120})
         assert response["ok"] is True
         assert daemon.config.max_record_seconds == 120
@@ -173,6 +170,49 @@ class TestHandleRequest:
         response = daemon.handle_request({"cmd": "make-coffee"})
         assert response["ok"] is False
         assert "make-coffee" in response["error"]
+
+
+class TestSettingsChanges:
+    """The daemon's half of the settings contract: derived state follows
+    the settings, and a change that did not happen says so."""
+
+    def test_the_state_machine_follows_the_setting(self, daemon):
+        daemon.set_mode("toggle")
+        assert daemon.sm.mode == "toggle"
+        assert daemon.config.mode == "toggle"
+
+    def test_an_unwritable_config_leaves_everything_alone(self, daemon, tmp_path):
+        import os
+
+        os.chmod(tmp_path, 0o500)
+        try:
+            assert daemon.set_mode("toggle") is False
+        finally:
+            os.chmod(tmp_path, 0o700)
+        assert daemon.sm.mode == "hold"
+        assert daemon.config.mode == "hold"
+
+    def test_a_failed_change_tells_the_user(self, daemon, tmp_path):
+        import os
+
+        notifications = []
+        daemon.desktop.notify = lambda summary, body="": \
+            notifications.append((summary, body))
+        os.chmod(tmp_path, 0o500)
+        try:
+            daemon.set_auto_type(False)
+        finally:
+            os.chmod(tmp_path, 0o700)
+        assert notifications[-1][0] == "Setting not saved"
+        assert daemon.config.auto_type is True
+
+    def test_a_rejected_value_reports_false(self, daemon):
+        assert daemon.set_max_record_seconds(5) is False
+        assert daemon.config.max_record_seconds == 60
+
+    def test_a_successful_change_reports_true(self, daemon):
+        assert daemon.set_notifications(False) is True
+        assert daemon.config.notifications is False
 
 
 class TestSocketRoundtrip:
