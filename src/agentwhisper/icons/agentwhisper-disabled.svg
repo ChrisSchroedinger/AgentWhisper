@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3245"/>
+      <stop offset="1" stop-color="#171c2a"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded-square badge -->
+  <rect x="3" y="3" width="58" height="58" rx="14" fill="url(#bg)"/>
+  <!-- microphone, dimmed; no agent spark while dictation is off -->
+  <rect x="26" y="13" width="12" height="22" rx="6" fill="#8891a6"/>
+  <path d="M20 30v3a12 12 0 0 0 24 0v-3" fill="none" stroke="#8891a6"
+        stroke-width="4" stroke-linecap="round"/>
+  <line x1="32" y1="45" x2="32" y2="50" stroke="#8891a6"
+        stroke-width="4" stroke-linecap="round"/>
+  <line x1="25" y1="50" x2="39" y2="50" stroke="#8891a6"
+        stroke-width="4" stroke-linecap="round"/>
+  <!-- prohibition sign: a dark halo first, so the ring and the bar stay
+       readable where they cross the microphone at panel size -->
+  <g fill="none" stroke="#171c2a" stroke-width="10" stroke-linecap="round">
+    <circle cx="32" cy="32" r="24"/>
+    <line x1="15" y1="15" x2="49" y2="49"/>
+  </g>
+  <g fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round">
+    <circle cx="32" cy="32" r="24"/>
+    <line x1="15" y1="15" x2="49" y2="49"/>
+  </g>
+</svg>

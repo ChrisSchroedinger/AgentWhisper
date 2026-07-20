@@ -31,7 +31,12 @@ from agentwhisper.desktop.x11 import X11Desktop
 from agentwhisper.engines.base import EngineError, EnginePhase, EngineStatus
 from agentwhisper.engines.whisper_local import WhisperLocalEngine
 from agentwhisper.settings import Settings
-from agentwhisper.state import RELEASE_DEBOUNCE_SECONDS, Action, DictationStateMachine
+from agentwhisper.state import (
+    RELEASE_DEBOUNCE_SECONDS,
+    Action,
+    DictationStateMachine,
+    Phase,
+)
 
 log = logging.getLogger("agentwhisper")
 
@@ -341,6 +346,10 @@ class Daemon:
         with self._lock:
             self._dispatch(self.sm.set_enabled(enabled))
         log.info("dictation %s", "enabled" if enabled else "disabled")
+        # The panel icon says whether AgentWhisper is listening, so it
+        # has to follow a toggle from the CLI as well as from the menu.
+        if self._tray is not None and self.sm.phase is Phase.IDLE:
+            self._tray.set_state("idle")
 
     def get_mode(self) -> str:
         return self.sm.mode

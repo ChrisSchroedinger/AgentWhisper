@@ -37,6 +37,22 @@ def _limit_label(seconds: int) -> str:
     return f"{seconds} seconds"
 
 
+# The icon names the panel is ever asked for; each needs a matching
+# .svg in the package's icons/ directory, or the panel shows nothing.
+ICON_IDLE = "agentwhisper"
+ICON_RECORDING = "agentwhisper-recording"
+ICON_DISABLED = "agentwhisper-disabled"
+
+
+def idle_icon(enabled: bool) -> str:
+    """The panel icon for a daemon that is not recording.
+
+    Disabled gets the microphone under a prohibition sign, so the panel
+    answers "is it listening?" without opening the menu.
+    """
+    return ICON_IDLE if enabled else ICON_DISABLED
+
+
 def status_label(status: EngineStatus, *, enabled: bool, mode: str, key: str) -> str:
     """The tray's status line, as a pure function of what it reports.
 
@@ -119,7 +135,7 @@ class Tray:
 
         self.indicator = AppIndicator.Indicator.new_with_path(
             "agentwhisper",
-            "agentwhisper",
+            idle_icon(app.is_enabled()),
             AppIndicator.IndicatorCategory.APPLICATION_STATUS,
             _icon_dir(),
         )
@@ -218,9 +234,10 @@ class Tray:
         self._updating_menu = False
 
     def _on_enabled_toggled(self, item):
+        # The daemon refreshes the icon and the status line afterwards,
+        # so switching from the CLI looks the same as switching here.
         if not self._updating_menu:
             self._app.set_enabled(item.get_active())
-            self._refresh_status_label()
 
     def _on_mode_toggled(self, item, mode):
         if self._updating_menu or not item.get_active():
@@ -345,13 +362,15 @@ class Tray:
 
     def _set_state_on_gtk_thread(self, state: str) -> bool:
         if state == "recording":
-            self.indicator.set_icon_full("agentwhisper-recording", "recording")
+            self.indicator.set_icon_full(ICON_RECORDING, "recording")
             self._status_item.set_label("● Recording…")
         elif state == "transcribing":
-            self.indicator.set_icon_full("agentwhisper", "transcribing")
+            self.indicator.set_icon_full(ICON_IDLE, "transcribing")
             self._status_item.set_label("⋯ Transcribing…")
         else:
-            self.indicator.set_icon_full("agentwhisper", "idle")
+            enabled = self._app.is_enabled()
+            self.indicator.set_icon_full(
+                idle_icon(enabled), "idle" if enabled else "dictation disabled")
             self._refresh_status_label()
         return False
 

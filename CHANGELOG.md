@@ -2,6 +2,24 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.3 — 2026-07-20
+
+### Added
+- The tray icon now shows when dictation is switched off: the
+  microphone under a prohibition sign (`icons/agentwhisper-disabled.svg`),
+  so the panel answers "is it listening?" without opening the menu.
+
+### Fixed
+- Toggling from the CLI (`agentwhisper toggle`) left the tray icon and
+  status line stale. The daemon refreshes the panel after every
+  `set_enabled()`, so both entry points look the same.
+
+### Notes
+- `tray.idle_icon(enabled)` picks the non-recording icon;
+  `tests/test_tray_icons.py` asserts every name the panel is asked for
+  has a shipped `.svg`, which is the failure a typo would otherwise
+  produce silently (an empty space in the panel).
+
 ## 0.5.2 — 2026-07-20
 
 ### Added
