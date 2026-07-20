@@ -25,8 +25,14 @@ if ! "$VENV/bin/python3" -c "import agentwhisper, faster_whisper, sounddevice, X
     # unrelated system apps (their deps never see this venv) and prints
     # scary but meaningless conflict errors. Our own set is consistent
     # (resolved from the project lockfile).
+    # --no-deps: requirements.txt is a complete resolved lockfile, so
+    # nothing is missing. It also keeps pip from pulling PyAV back in:
+    # faster-whisper declares it, but only to decode audio files, which
+    # AgentWhisper never does (it transcribes in-memory samples). The
+    # lockfile excludes it, saving ~100MB of bundled FFmpeg on disk.
     "$VENV/bin/pip" install -q --upgrade pip
-    "$VENV/bin/pip" install -q --no-warn-conflicts -r "$LIBDIR/requirements.txt"
+    "$VENV/bin/pip" install -q --no-warn-conflicts --no-deps \
+        -r "$LIBDIR/requirements.txt"
     "$VENV/bin/pip" install -q --no-warn-conflicts --no-deps "$LIBDIR"
 fi
 

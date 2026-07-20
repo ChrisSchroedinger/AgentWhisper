@@ -1,6 +1,6 @@
 [project]
 name = "agentwhisper"
-version = "0.5.0"
+version = "0.5.1"
 description = "Rock-solid push-to-talk voice dictation for Linux, daemon + clients architecture"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,6 +42,9 @@ packages = ["src/agentwhisper"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "slow: spawns an interpreter or loads a real model (deselect with '-m \"not slow\"')",
+]
 
 [tool.ruff]
 line-length = 100

@@ -2,6 +2,35 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.1 — 2026-07-20
+
+### Removed
+- PyAV is no longer installed or imported. faster-whisper declares it to
+  support `decode_audio()`, which this engine never reaches:
+  `transcribe()` receives in-memory samples from the recorder, so no
+  file is decoded. Removing it saves 16 MB of resident memory and 102 MB
+  on disk (30 MB `av`, 72 MB of bundled FFmpeg in `av.libs`).
+
+### Changed
+- `requirements.txt` is exported with `uv export --no-emit-package av`,
+  so the exclusion survives regeneration.
+- `packaging/setup-venv.sh` installs the lockfile with `--no-deps`,
+  preventing pip from resolving PyAV back in via faster-whisper's
+  metadata. The lockfile is a complete resolved set, so nothing else is
+  affected.
+
+### Notes
+- `_skip_pyav_import()` registers a placeholder module under `av` before
+  any faster-whisper import, including the `faster_whisper.utils` ones,
+  which execute the package `__init__` as well. Every `av.*` reference
+  in faster-whisper sits inside a function body, so the placeholder is
+  never touched at import time; attribute access raises `EngineError`
+  with an explanation rather than an obscure failure.
+- `tests/test_no_pyav.py` asserts the import graph in a fresh
+  interpreter and runs a transcription against a real model, so a
+  dependency bump that starts touching PyAV at import time fails the
+  suite rather than silently restoring the cost.
+
 ## 0.5.0 — 2026-07-20
 
 ### Added

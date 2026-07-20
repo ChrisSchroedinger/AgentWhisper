@@ -11,8 +11,10 @@ import contextlib
 import ctypes
 import logging
 import os
+import sys
 import threading
 import time
+import types
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +39,51 @@ def _return_freed_memory_to_the_os() -> None:
     """
     with contextlib.suppress(OSError, AttributeError):
         ctypes.CDLL("libc.so.6").malloc_trim(0)
+
+
+def _skip_pyav_import() -> None:
+    """Keep PyAV (and its bundled FFmpeg) out of the process.
+
+    faster-whisper's package __init__ imports decode_audio, which imports
+    av at module level — 16 MB of resident memory and ~100 MB on disk for
+    a decoder this engine never reaches: transcribe() is handed a numpy
+    array from the recorder, so no file is ever decoded.
+
+    Registering a placeholder under the name satisfies the import without
+    loading the library. Every av.* call in faster-whisper sits inside a
+    function body, none at module level, so nothing touches the
+    placeholder unless decode_audio() is called — and if some future
+    version does call it, it raises with an explanation instead of
+    failing obscurely.
+
+    Must run before ANY faster_whisper import, including the
+    faster_whisper.utils ones, because those execute the package
+    __init__ too.
+    """
+    if "av" in sys.modules:
+        return
+    placeholder = types.ModuleType("av")
+    placeholder.__doc__ = (
+        "Placeholder installed by AgentWhisper: PyAV is deliberately not "
+        "installed, because faster-whisper only needs it to decode audio "
+        "files and AgentWhisper transcribes in-memory samples."
+    )
+
+    def _unavailable(*_args, **_kwargs):
+        raise EngineError(
+            "this build of AgentWhisper cannot decode audio files "
+            "(PyAV is not installed)")
+
+    def _attribute(name: str):
+        # Dunders must fail the ordinary way: answering __file__ or
+        # __version__ with a callable would make the placeholder lie to
+        # anything that inspects it, including tests asserting it is one.
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
+        return _unavailable
+
+    placeholder.__getattr__ = _attribute
+    sys.modules["av"] = placeholder
 
 
 class WhisperLocalEngine:
@@ -77,6 +124,7 @@ class WhisperLocalEngine:
         succeeds only when every required file is present.
         """
         try:
+            _skip_pyav_import()
             from faster_whisper.utils import download_model
 
             download_model(self.model_name, local_files_only=True)
@@ -85,6 +133,7 @@ class WhisperLocalEngine:
             return False
 
     def _repo_id(self) -> str:
+        _skip_pyav_import()
         from faster_whisper.utils import _MODELS
 
         return _MODELS.get(self.model_name, self.model_name)
@@ -129,6 +178,7 @@ class WhisperLocalEngine:
         return min(99, int(100 * done / self._expected_bytes))
 
     def load(self) -> None:
+        _skip_pyav_import()
         from faster_whisper import WhisperModel
 
         cached = self.is_cached()
