@@ -28,7 +28,7 @@ from agentwhisper import config as config_mod
 from agentwhisper.audio import AudioError, Recorder
 from agentwhisper.desktop.base import DesktopError
 from agentwhisper.desktop.x11 import X11Desktop
-from agentwhisper.engines.base import EngineError
+from agentwhisper.engines.base import EngineError, EnginePhase, EngineStatus
 from agentwhisper.engines.whisper_local import WhisperLocalEngine
 from agentwhisper.state import RELEASE_DEBOUNCE_SECONDS, Action, DictationStateMachine
 
@@ -85,12 +85,13 @@ class Daemon:
         self.engine.load()
         if self._tray is not None:
             self._tray.set_state("idle")  # refresh the status line
-        if self.engine.status == "ready":
+        status = self.engine.status
+        if status.phase is EnginePhase.READY:
             if self.engine.downloaded:
                 self._notify("AgentWhisper is ready",
                              "The speech model is installed — you can dictate now.")
         else:
-            self._notify("Speech model failed to load", self.engine.status)
+            self._notify("Speech model failed to load", status.describe())
 
     # -- hotkey events (called from the listener thread) -----------------
 
@@ -196,7 +197,7 @@ class Daemon:
             return
 
         log.info("recording stopped: %.1fs captured — transcribing", duration)
-        if self.engine.status.startswith(("downloading", "loading")):
+        if self.engine.status.busy:
             self._notify("Preparing the speech model",
                          "Your dictation is queued and will be transcribed "
                          "as soon as the model is ready.")
@@ -367,7 +368,7 @@ class Daemon:
         config_mod.save(self.config)
         log.info("recording limit set to %ds", seconds)
 
-    def engine_status(self) -> str:
+    def engine_status(self) -> EngineStatus:
         return self.engine.status
 
     def is_autostart(self) -> bool:
@@ -416,7 +417,7 @@ class Daemon:
                 phase=self.sm.phase.name.lower(),
                 enabled=self.sm.enabled,
                 model=self.config.model,
-                engine=self.engine.status,
+                engine=self.engine.status.describe(),
                 desktop="; ".join(self.desktop_problems) or "ok",
                 auto_type=self.config.auto_type,
                 notifications=self.config.notifications,

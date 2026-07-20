@@ -9,7 +9,7 @@ import threading
 import numpy as np
 import pytest
 
-from agentwhisper.engines.base import EngineError
+from agentwhisper.engines.base import EngineError, EnginePhase
 from agentwhisper.engines.whisper_local import WhisperLocalEngine
 
 SAMPLES = np.zeros(1600, dtype=np.int16)
@@ -49,7 +49,7 @@ def make_engine(unload_after_seconds=300):
     """An engine in the state load() leaves it in, without the download."""
     engine = WhisperLocalEngine("base", unload_after_seconds=unload_after_seconds)
     engine._model = FakeWhisperModel()
-    engine._status = "ready"
+    engine._phase = EnginePhase.READY
     engine._loaded.set()
     return engine
 
@@ -83,7 +83,7 @@ class TestResidency:
         able to tell, or the tray would report a state the user cannot act on."""
         engine = make_engine()
         engine._unload()
-        assert engine.status == "ready"
+        assert engine.status.phase is EnginePhase.READY
 
     def test_unload_is_scheduled_after_transcribing(self):
         engine = make_engine(unload_after_seconds=30)
@@ -141,7 +141,8 @@ class TestResidency:
 
     def test_a_failed_load_still_reports_the_error(self):
         engine = WhisperLocalEngine("base", unload_after_seconds=300)
-        engine._status = "error: no disk space"
+        engine._phase = EnginePhase.FAILED
+        engine._error = "no disk space"
         engine._loaded.set()
         with pytest.raises(EngineError, match="failed to load"):
             engine.transcribe(SAMPLES, 16_000)
@@ -151,7 +152,7 @@ class TestWarmUpOnRecording:
     def test_recording_warms_the_engine_up(self):
         """The reload has to start with the recording, not with the
         transcription — that is what keeps it invisible to the user."""
-        from test_pipeline import make_daemon
+        from tests.test_pipeline import make_daemon
 
         daemon = make_daemon()
         daemon.on_hotkey_press()

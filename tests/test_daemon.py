@@ -8,10 +8,16 @@ import pytest
 from agentwhisper import ipc
 from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon, _Server
+from agentwhisper.engines.base import EnginePhase, EngineStatus
 
 
 class _FakeEngine:
-    status = "ready"
+    status = EngineStatus(EnginePhase.READY)
+    downloaded = False
+    load_finished = True
+
+    def is_cached(self):
+        return True
 
     def load(self):
         pass

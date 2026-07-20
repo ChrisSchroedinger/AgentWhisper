@@ -102,6 +102,7 @@ where the name points, but v1 ships dictation only.
 | Typing/clipboard | xdotool/xclip subprocess **inside** the X11 backend | Proven; verified at startup; isolated so it's swappable |
 | Config | TOML at `~/.config/agentwhisper/config.toml`, stdlib `tomllib`, dataclass-validated | No pydantic dependency for v1 |
 | Model residency | The engine owns it: weights are dropped after `unload_after_seconds` idle and reloaded when recording starts | See below — the daemon never asks whether the model is in memory |
+| Engine state | `EngineStatus(phase, percent, error)`, a frozen dataclass — not a free-text string | Callers compare phases; the wording is written where it is displayed. The string version was parsed back apart by three modules |
 | Logging | `logging` → file + stderr (journald picks it up) | `agentwhisper logs` tails it |
 | Tests | pytest; unit tests for state machine, debounce, config, protocol; integration test with a fake engine + fake backend | The state machine is pure logic — fully testable without audio or X11 |
 | Lint/format | ruff (lint + format) | One tool |

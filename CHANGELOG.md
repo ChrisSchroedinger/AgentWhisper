@@ -2,6 +2,34 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.2 — 2026-07-20
+
+No user-visible change. Internal refactor of how engine state is
+represented, and the tests it makes possible.
+
+### Added
+- `EnginePhase` and `EngineStatus(phase, percent, error)` in
+  `engines/base.py`. `EngineStatus` is a frozen dataclass exposing
+  `busy` and `describe()`.
+- `tray.status_label(status, *, enabled, mode, key)`: the tray's status
+  line as a pure function, testable without GTK.
+- `tests/test_engine_status.py`: 17 tests covering the status value, the
+  tray label, and the engine load path.
+
+### Changed
+- `Engine.status` returns an `EngineStatus` instead of a string such as
+  `"downloading 42%"`. The daemon and the tray previously recovered the
+  phase and the percentage from that string with `startswith()`,
+  `removeprefix()` and `strip()`; both now compare phases and read
+  `percent` directly. Display wording moved to the tray and the CLI.
+- The `Engine` protocol declares the six members the daemon uses.
+  `is_cached()`, `load_finished` and `downloaded` were called but not
+  declared, so conforming test doubles could not drive `start_engine()`
+  and the download and load path had no coverage.
+- The IPC `status` response still carries `engine` as a display string,
+  produced by `EngineStatus.describe()`. Nothing parses it; the CLI
+  prints it verbatim.
+
 ## 0.5.1 — 2026-07-20
 
 ### Removed

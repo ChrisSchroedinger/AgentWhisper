@@ -10,7 +10,7 @@ import pytest
 
 from agentwhisper.config import Config
 from agentwhisper.daemon import Daemon
-from agentwhisper.engines.base import EngineError
+from agentwhisper.engines.base import EngineError, EnginePhase, EngineStatus
 from agentwhisper.state import Phase
 
 
@@ -33,9 +33,14 @@ class FakeEngine:
     def __init__(self, text="hello world", error=None):
         self.text = text
         self.error = error
-        self.status = "ready"
+        self.status = EngineStatus(EnginePhase.READY)
         self.calls = 0
         self.warm_ups = 0
+        self.downloaded = False
+        self.load_finished = True
+
+    def is_cached(self):
+        return True
 
     def load(self):
         pass

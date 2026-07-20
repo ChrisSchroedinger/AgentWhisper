@@ -15,6 +15,7 @@ from __future__ import annotations
 from importlib import resources
 
 from agentwhisper import __version__
+from agentwhisper.engines.base import EnginePhase, EngineStatus
 
 APT_HINT = "sudo apt install python3-gi python3-gi-cairo gir1.2-ayatanaappindicator3-0.1"
 
@@ -34,6 +35,25 @@ def _limit_label(seconds: int) -> str:
         minutes = seconds // 60
         return f"{minutes} minute" + ("s" if minutes != 1 else "")
     return f"{seconds} seconds"
+
+
+def status_label(status: EngineStatus, *, enabled: bool, mode: str, key: str) -> str:
+    """The tray's status line, as a pure function of what it reports.
+
+    Separate from the widget so it can be tested: constructing a Tray
+    needs GTK, and this is the part most likely to be wrong.
+    """
+    if status.phase is EnginePhase.DOWNLOADING:
+        return f"Downloading speech model… {status.percent}% (one time)"
+    if status.busy or status.phase is EnginePhase.NOT_LOADED:
+        return "Preparing speech model…"
+    if status.phase is EnginePhase.FAILED:
+        return "Speech model failed — see agentwhisper status"
+    if not enabled:
+        return "Disabled"
+    if mode == "hold":
+        return f"Ready — hold {key} to dictate"
+    return f"Ready — press {key} to start/stop"
 
 
 def _argb_to_rgba(pixels: list[int], width: int, height: int) -> bytes:
@@ -323,22 +343,12 @@ class Tray:
         return False
 
     def _refresh_status_label(self) -> None:
-        key = self._app.hotkey_name().upper()
-        engine = self._app.engine_status()
-        if engine.startswith("downloading"):
-            percent = engine.removeprefix("downloading").strip()
-            text = f"Downloading speech model… {percent or '0%'} (one time)"
-        elif engine in ("loading", "not loaded"):
-            text = "Preparing speech model…"
-        elif engine.startswith("error"):
-            text = "Speech model failed — see agentwhisper status"
-        elif not self._app.is_enabled():
-            text = "Disabled"
-        elif self._app.get_mode() == "hold":
-            text = f"Ready — hold {key} to dictate"
-        else:
-            text = f"Ready — press {key} to start/stop"
-        self._status_item.set_label(text)
+        self._status_item.set_label(status_label(
+            self._app.engine_status(),
+            enabled=self._app.is_enabled(),
+            mode=self._app.get_mode(),
+            key=self._app.hotkey_name().upper(),
+        ))
 
     # -- lifecycle -----------------------------------------------------------
 

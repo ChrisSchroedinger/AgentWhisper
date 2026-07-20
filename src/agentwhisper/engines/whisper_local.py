@@ -19,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
-from agentwhisper.engines.base import EngineError
+from agentwhisper.engines.base import EngineError, EnginePhase, EngineStatus
 
 log = logging.getLogger("agentwhisper.engine")
 
@@ -94,7 +94,8 @@ class WhisperLocalEngine:
         self.compute_type = compute_type
         self.unload_after_seconds = unload_after_seconds
         self._model = None
-        self._status = "not loaded"
+        self._phase = EnginePhase.NOT_LOADED
+        self._error = ""
         self._loaded = threading.Event()
         self.downloaded = False  # True if load() had to download the model
         self._expected_bytes = 0  # remote size of the model being downloaded
@@ -104,10 +105,10 @@ class WhisperLocalEngine:
         self._unload_timer: threading.Timer | None = None
 
     @property
-    def status(self) -> str:
-        if self._status == "downloading":
-            return f"downloading {self.progress}%"
-        return self._status
+    def status(self) -> EngineStatus:
+        if self._phase is EnginePhase.DOWNLOADING:
+            return EngineStatus(EnginePhase.DOWNLOADING, percent=self.progress)
+        return EngineStatus(self._phase, error=self._error)
 
     @property
     def load_finished(self) -> bool:
@@ -183,7 +184,7 @@ class WhisperLocalEngine:
 
         cached = self.is_cached()
         self.downloaded = not cached
-        self._status = "loading" if cached else "downloading"
+        self._phase = EnginePhase.LOADING if cached else EnginePhase.DOWNLOADING
         log.info("%s whisper model %r",
                  "loading" if cached else "downloading (first run)", self.model_name)
         started = time.time()
@@ -194,10 +195,11 @@ class WhisperLocalEngine:
                 self.model_name, device=self.device, compute_type=self.compute_type
             )
         except Exception as e:
-            self._status = f"error: {e}"
+            self._phase = EnginePhase.FAILED
+            self._error = str(e)
             log.error("model load failed: %s", e)
         else:
-            self._status = "ready"
+            self._phase = EnginePhase.READY
             log.info("model %r ready in %.1fs", self.model_name, time.time() - started)
             self._schedule_unload()
         finally:
@@ -260,7 +262,7 @@ class WhisperLocalEngine:
         if not self._loaded.wait(timeout=LOAD_WAIT_SECONDS):
             raise EngineError("the model is still loading — try again shortly")
         if self._model is None:
-            raise EngineError(f"the model failed to load ({self._status})")
+            raise EngineError(f"the model failed to load ({self.status.describe()})")
         if sample_rate != 16_000:
             raise EngineError(f"expected 16kHz audio, got {sample_rate}Hz")
 

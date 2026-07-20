@@ -64,7 +64,7 @@ class TestPyAVIsNotLoaded:
 
             engine = WhisperLocalEngine("tiny")
             engine.load()
-            assert engine.status == "ready", engine.status
+            assert engine.status.phase.name == "READY", engine.status
             engine.transcribe(np.zeros(16_000, dtype=np.int16), 16_000)
             print("ok")
         """)
