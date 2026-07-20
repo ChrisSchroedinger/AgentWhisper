@@ -101,6 +101,7 @@ where the name points, but v1 ships dictation only.
 | Hotkey | `python-xlib` XGrabKey | Exclusive system-wide grab: the key never reaches other apps while the daemon runs. BadAccess (someone else grabbed it) is a clear error. evdev is the future Wayland path |
 | Typing/clipboard | xdotool/xclip subprocess **inside** the X11 backend | Proven; verified at startup; isolated so it's swappable |
 | Config | TOML at `~/.config/agentwhisper/config.toml`, stdlib `tomllib`, dataclass-validated | No pydantic dependency for v1 |
+| Model residency | The engine owns it: weights are dropped after `unload_after_seconds` idle and reloaded when recording starts | See below — the daemon never asks whether the model is in memory |
 | Logging | `logging` → file + stderr (journald picks it up) | `agentwhisper logs` tails it |
 | Tests | pytest; unit tests for state machine, debounce, config, protocol; integration test with a fake engine + fake backend | The state machine is pure logic — fully testable without audio or X11 |
 | Lint/format | ruff (lint + format) | One tool |
@@ -160,6 +161,32 @@ agentwhisper/
 6. **AppImage** (planned): a single-file, distro-independent build.
    Open question to solve: bundling Python + the GTK/AppIndicator
    bindings that the venv approach borrows from the system.
+
+## Model residency (v0.4.2)
+
+The model weights are the only large thing the daemon holds — 140 MB for
+`base`, 460 MB for `small`, up to 3 GB for `large-v3` — and a
+push-to-talk tool is idle almost all of the time. So residency is a
+policy that lives entirely inside `engines/whisper_local.py`, behind the
+unchanged `transcribe()` seam: no caller ever asks whether the weights
+are in memory, and `status` keeps reporting `ready` while they are not.
+
+- **Unload** after `whisper.unload_after_seconds` idle (default 300, `0`
+  disables). `ctranslate2`'s `unload_model(to_cpu=False)` frees the
+  weights, but glibc keeps the arenas — `malloc_trim(0)` is what
+  actually returns the pages. Measured on `small`: 687 MB → 420 MB after
+  the free, → 173 MB after the trim. Skipping the trim gives up two
+  thirds of the win.
+- **Reload on recording start**, not on transcription: the daemon
+  spawns `engine.warm_up()` from `_start_recording`, so the reload
+  (~0.3 s for `base`, ~1.0 s for `small`) overlaps the user speaking.
+  Measured cost of a 3 s dictation from cold: ±0.05 s, i.e. nothing. The
+  residual only shows up on a dictation shorter than the reload, and
+  only on the first one after an idle period.
+- **A `threading.RLock` is held across every use of the weights**, so
+  the idle timer can never unload them mid-transcription — ctranslate2
+  raises `No model replica is available in this thread` if it does, and
+  there is no lazy-reload path to catch it.
 
 ## Future seams (explicitly designed for, not built)
 

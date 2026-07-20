@@ -2,6 +2,20 @@
 
 All notable changes to AgentWhisper are documented here.
 
+## 0.5.0 — 2026-07-20
+
+### Changed
+- AgentWhisper now gives the memory back when you are not dictating.
+  The speech model is the only large thing it holds — from about
+  140 MB for `base` up to 3 GB for `large-v3` — and it used to stay
+  loaded from the moment the app started until you quit it. It is now
+  released after five idle minutes, which leaves the app sitting at
+  roughly 150 MB, and loaded again the instant you press the hotkey,
+  while you are still speaking. Dictation is not slower for it.
+- New setting `unload_after_seconds` in the `[whisper]` section: how
+  long to wait before releasing the model (`30`–`3600` seconds, or `0`
+  to keep it loaded permanently). Default `300`.
+
 ## 0.4.1 — 2026-07-19
 
 ### Changed

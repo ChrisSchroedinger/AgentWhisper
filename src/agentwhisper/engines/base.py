@@ -26,6 +26,16 @@ class Engine(Protocol):
         thread, at daemon startup. Errors are reflected in status."""
         ...
 
+    def warm_up(self) -> None:
+        """Blocking: make the engine ready to transcribe right now.
+
+        Called from a background thread when recording starts, so an
+        engine that releases resources while idle can reacquire them
+        while the user is still speaking. A no-op is a valid
+        implementation — transcribe() must work either way.
+        """
+        ...
+
     def transcribe(self, samples: np.ndarray, sample_rate: int) -> str:
         """Mono int16 samples → text. Blocks; waits for load() if needed.
         Returns '' when no speech is detected. Raises EngineError."""

@@ -7,6 +7,8 @@ that everything is offline.
 
 from __future__ import annotations
 
+import contextlib
+import ctypes
 import logging
 import os
 import threading
@@ -24,16 +26,35 @@ log = logging.getLogger("agentwhisper.engine")
 LOAD_WAIT_SECONDS = 600
 
 
+def _return_freed_memory_to_the_os() -> None:
+    """Ask glibc to give back the arenas freed by unloading the weights.
+
+    Dropping the model frees the memory inside the process, but glibc
+    keeps the arenas for reuse, so RSS barely moves — measured on the
+    'small' model: 687 MB before, 420 MB after free(), 173 MB after this
+    call. Without it the unload is worth about a third of what it looks
+    like. Absent on non-glibc systems, where it is simply skipped.
+    """
+    with contextlib.suppress(OSError, AttributeError):
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+
+
 class WhisperLocalEngine:
-    def __init__(self, model: str, device: str = "cpu", compute_type: str = "int8"):
+    def __init__(self, model: str, device: str = "cpu", compute_type: str = "int8",
+                 unload_after_seconds: int = 0):
         self.model_name = model
         self.device = device
         self.compute_type = compute_type
+        self.unload_after_seconds = unload_after_seconds
         self._model = None
         self._status = "not loaded"
         self._loaded = threading.Event()
         self.downloaded = False  # True if load() had to download the model
         self._expected_bytes = 0  # remote size of the model being downloaded
+        # Held across every use of the weights, so the idle timer can
+        # never unload them out from under a transcription in flight.
+        self._residency = threading.RLock()
+        self._unload_timer: threading.Timer | None = None
 
     @property
     def status(self) -> str:
@@ -128,8 +149,62 @@ class WhisperLocalEngine:
         else:
             self._status = "ready"
             log.info("model %r ready in %.1fs", self.model_name, time.time() - started)
+            self._schedule_unload()
         finally:
             self._loaded.set()
+
+    # -- weight residency ------------------------------------------------
+    #
+    # The model is a few hundred megabytes and dictation is a few seconds
+    # a day, so the weights are dropped again after an idle period and
+    # brought back when they are next needed. This is entirely internal:
+    # `status` still says "ready" while unloaded, because from the outside
+    # nothing has changed — transcribe() always works.
+
+    @property
+    def resident(self) -> bool:
+        """True if the weights are currently in memory."""
+        return self._model is not None and self._model.model.model_is_loaded
+
+    def warm_up(self) -> None:
+        """Bring the weights back if they were dropped. Safe to call from
+        anywhere, any number of times; blocks until they are resident.
+
+        The daemon calls this the moment recording starts, so the reload
+        (0.3s for 'base', ~1.0s for 'small') runs while the user is still
+        speaking and never shows up as a delay.
+        """
+        if not self._loaded.is_set() or self._model is None:
+            return  # the initial load owns the weights until it is done
+        with self._residency:
+            self._ensure_resident()
+            self._schedule_unload()
+
+    def _ensure_resident(self) -> None:
+        """Caller must hold self._residency."""
+        if self._model is None or self._model.model.model_is_loaded:
+            return
+        started = time.time()
+        self._model.model.load_model()
+        log.info("model %r reloaded in %.2fs", self.model_name, time.time() - started)
+
+    def _schedule_unload(self) -> None:
+        if not self.unload_after_seconds:
+            return
+        if self._unload_timer is not None:
+            self._unload_timer.cancel()
+        self._unload_timer = threading.Timer(self.unload_after_seconds, self._unload)
+        self._unload_timer.daemon = True
+        self._unload_timer.start()
+
+    def _unload(self) -> None:
+        with self._residency:
+            if self._model is None or not self._model.model.model_is_loaded:
+                return
+            self._model.model.unload_model(to_cpu=False)
+            _return_freed_memory_to_the_os()
+            log.info("model %r unloaded after %ds idle", self.model_name,
+                     self.unload_after_seconds)
 
     def transcribe(self, samples: np.ndarray, sample_rate: int) -> str:
         if not self._loaded.wait(timeout=LOAD_WAIT_SECONDS):
@@ -142,7 +217,12 @@ class WhisperLocalEngine:
         audio = samples.astype(np.float32) / 32768.0
         # language is deliberately not passed: the general models figure
         # out the spoken language themselves, whatever it is.
-        segments, _info = self._model.transcribe(
-            audio, beam_size=5, vad_filter=True
-        )
-        return " ".join(s.text.strip() for s in segments).strip()
+        with self._residency:
+            self._ensure_resident()
+            try:
+                segments, _info = self._model.transcribe(
+                    audio, beam_size=5, vad_filter=True
+                )
+                return " ".join(s.text.strip() for s in segments).strip()
+            finally:
+                self._schedule_unload()

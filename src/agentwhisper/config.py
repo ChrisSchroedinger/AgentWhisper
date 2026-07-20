@@ -23,6 +23,10 @@ MODES = ["hold", "toggle"]
 # normal sentences; above 10 min transcription time and memory balloon.
 LIMIT_MIN, LIMIT_MAX = 30, 600
 
+# Allowed range for unload_after_seconds (0 disables it): below 30 s a
+# normal pause between two dictations would keep reloading the model.
+UNLOAD_MIN, UNLOAD_MAX = 30, 3600
+
 class ConfigError(Exception):
     """Raised with a message listing every problem found in the config."""
 
@@ -32,6 +36,7 @@ class Config:
     model: str = "base"
     device: str = "cpu"
     compute_type: str = "int8"
+    unload_after_seconds: int = 300
     hotkey: str = "f12"
     mode: str = "hold"
     auto_type: bool = True
@@ -46,6 +51,12 @@ class Config:
             problems.append(f"whisper.device {self.device!r} is not 'cpu' or 'cuda'")
         if self.mode not in MODES:
             problems.append(f"hotkey.mode {self.mode!r} is not one of {', '.join(MODES)}")
+        if (not isinstance(self.unload_after_seconds, int)
+                or not (self.unload_after_seconds == 0
+                        or UNLOAD_MIN <= self.unload_after_seconds <= UNLOAD_MAX)):
+            problems.append(
+                f"whisper.unload_after_seconds must be 0 or an integer between "
+                f"{UNLOAD_MIN} and {UNLOAD_MAX}")
         if (not isinstance(self.max_record_seconds, int)
                 or not LIMIT_MIN <= self.max_record_seconds <= LIMIT_MAX):
             problems.append(
@@ -56,7 +67,8 @@ class Config:
 
 # Maps [section][key] in the TOML file to Config field names.
 _SCHEMA: dict[str, dict[str, str]] = {
-    "whisper": {"model": "model", "device": "device", "compute_type": "compute_type"},
+    "whisper": {"model": "model", "device": "device", "compute_type": "compute_type",
+                "unload_after_seconds": "unload_after_seconds"},
     "hotkey": {"key": "hotkey", "mode": "mode"},
     "output": {"auto_type": "auto_type", "notifications": "notifications"},
     "limits": {"max_record_seconds": "max_record_seconds"},
@@ -149,6 +161,14 @@ device = "{config.device}"
 #   int8     the right choice for cpu (default)
 #   float16  the right choice for cuda
 compute_type = "{config.compute_type}"
+
+# How long AgentWhisper keeps the model in memory after you stop using
+# it, in seconds (30 to 3600, or 0 to keep it loaded forever).
+# The model is by far the biggest thing AgentWhisper holds — dropping it
+# while you are not dictating takes the app from a few hundred megabytes
+# down to about 150. It is loaded again the instant you press the hotkey,
+# while you are still speaking, so dictation does not get slower.
+unload_after_seconds = {config.unload_after_seconds}
 
 [hotkey]
 # The push-to-talk key: f1 .. f12, scroll_lock, pause, insert, menu.

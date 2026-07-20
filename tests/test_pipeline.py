@@ -35,9 +35,13 @@ class FakeEngine:
         self.error = error
         self.status = "ready"
         self.calls = 0
+        self.warm_ups = 0
 
     def load(self):
         pass
+
+    def warm_up(self):
+        self.warm_ups += 1
 
     def transcribe(self, samples, sample_rate):
         self.calls += 1

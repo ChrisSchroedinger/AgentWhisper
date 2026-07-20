@@ -54,7 +54,7 @@ class Daemon:
         self.sm = DictationStateMachine(mode=cfg.mode)
         self.recorder = recorder if recorder is not None else Recorder()
         self.engine = engine if engine is not None else WhisperLocalEngine(
-            cfg.model, cfg.device, cfg.compute_type)
+            cfg.model, cfg.device, cfg.compute_type, cfg.unload_after_seconds)
         self.desktop = desktop if desktop is not None else X11Desktop()
         self.desktop_problems = self.desktop.check()
         self.started_at = time.time()
@@ -161,6 +161,11 @@ class Daemon:
             self._dispatch(self.sm.max_duration_reached())  # back to idle
             return
         log.info("recording started")
+        # The model may have been dropped while idle. Bring it back now,
+        # in parallel with the recording, so the reload finishes while
+        # the user is still speaking instead of delaying the transcript.
+        threading.Thread(target=self.engine.warm_up, name="engine-warm",
+                         daemon=True).start()
         self._set_cancel_grab(True)
         self._max_timer = threading.Timer(
             self.config.max_record_seconds, self._on_max_duration)

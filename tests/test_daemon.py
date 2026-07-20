@@ -16,6 +16,9 @@ class _FakeEngine:
     def load(self):
         pass
 
+    def warm_up(self):
+        pass
+
     def transcribe(self, samples, sample_rate):
         return ""
 

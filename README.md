@@ -164,9 +164,20 @@ run, with comments). The interesting ones:
 | `auto_type` | `true` | Type the text into the active window (besides copying it) |
 | `notifications` | `true` | Desktop notification after each dictation |
 | `max_record_seconds` | `60` | Safety cap on a single recording (`30`–`600`) |
+| `unload_after_seconds` | `300` | Free the model's memory after this long without dictating (`30`–`3600`, or `0` to keep it loaded) |
 
 Restart AgentWhisper after editing the file. (Mode and the recording
 limit can also be changed live from the tray.)
+
+### Memory
+
+The speech model is the only large thing AgentWhisper holds — from about
+140 MB for `base` up to 3 GB for `large-v3`. Since dictation takes
+seconds a day, the model is dropped again after five idle minutes, which
+leaves the app sitting at roughly 150 MB. It comes back the moment you
+press the key, while you are still speaking, so dictation is not slower
+for it. If you would rather trade the memory for certainty, set
+`unload_after_seconds = 0`.
 
 ## Troubleshooting
 
