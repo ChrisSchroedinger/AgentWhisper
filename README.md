@@ -7,11 +7,11 @@ writing. No cloud, no account, no internet needed after setup.
 
 **Website:** [chrisschroedinger.github.io/AgentWhisper](https://chrisschroedinger.github.io/AgentWhisper/)
 
-> **Project status: v0.3 — deployable.** Everything in the description
-> above works today: hold F12, speak, release — the text is **typed into
-> whatever you were writing** and is also in your clipboard. Optional
-> start-at-login, guided first-run model download, and a .deb package
-> round it out. In daily use on Debian/Ubuntu with XFCE.
+> **Project status: v0.5 — polished, in daily use.** Hold F12, speak,
+> release — the text is **typed into whatever you were writing** and is
+> also in your clipboard. Esc to cancel mid-dictation, pick one window
+> to dictate into invisibly, two recording modes, optional model memory
+> management, and a .deb package. In daily use on Debian/Ubuntu with XFCE.
 > See the [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
 
 AgentWhisper is the from-scratch successor to
@@ -210,15 +210,16 @@ If typing fails the text is still in your clipboard — Ctrl+V.
 | 3. Transcribes: speech → text in your clipboard | ✅ done |
 | 4. Types the text into the active window + notifications | ✅ done |
 | 5. Polish: autostart, easy model download, .deb package | ✅ done |
-| 6. More languages: standard multilingual models, no setup — just speak | ✅ done |
-| 7. AppImage package (single-file, distro-independent) | planned |
-| Later: Wayland, agent mode | designed for |
+| 6. More languages: standard multilingual models, no setup — just speak | ✅ done (v0.4.1) |
+| 7. Model unload: free memory after idle time, reload on next keypress | ✅ done (v0.5.0) |
+| 8. AppImage package (single-file, distro-independent) | planned |
+| Later: custom vocabulary, agent mode, Wayland | designed for |
 
 ## For developers
 
 ```bash
 ./install.sh       # sets up the venv (needs system Python + GTK bindings)
-uv run pytest      # 117 tests
+uv run pytest      # 171 tests
 uv run ruff check .
 ```
 
